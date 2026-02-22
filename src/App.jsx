@@ -143,6 +143,7 @@ export default function DCASimulator() {
   const [strategy, setStrategy] = useState("Exponential");
   const [scaleY, setScaleY] = useState("Lin");
   const [riskOffset, setRiskOffset] = useState(-0.02);
+  const [sellEnabled, setSellEnabled] = useState(false);
 
   const [dailyData, setDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -346,7 +347,7 @@ export default function DCASimulator() {
 
   const simulation = useMemo(() => {
     if (!rangeData.length) return { chartData: [], riskData: [], tradeLog: [], stats: null };
-    let totalInvested = 0, totalAsset = 0, buyCount = 0;
+    let totalInvested = 0, totalAsset = 0, buyCount = 0, sellCount = 0, totalSellProceeds = 0;
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -369,12 +370,30 @@ export default function DCASimulator() {
         }
       }
 
-      // Build trade log entry on purchase days and last day
+      // Sell logic — check risk thresholds on every day when sell is enabled
+      let sellPct = 0;
+      let sellProceeds = 0;
+      if (sellEnabled && totalAsset > 0 && !isLastDay) {
+        if (d.risk >= 0.90) sellPct = 0.10;
+        else if (d.risk >= 0.80) sellPct = 0.05;
+        if (sellPct > 0) {
+          const assetSold = totalAsset * sellPct;
+          sellProceeds = assetSold * d.price;
+          totalAsset -= assetSold;
+          totalSellProceeds += sellProceeds;
+          sellCount++;
+        }
+      }
+
+      // Build trade log entry on purchase days, sell days, and last day
       const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth, rangeData, i);
-      if (isBuyDay || isLastDay) {
+      const isSellDay = sellPct > 0;
+      if (isBuyDay || isSellDay || isLastDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
         let action = "None";
-        if (!isLastDay && purchase > 0) {
+        if (isSellDay) {
+          action = `Sell ${(sellPct * 100).toFixed(0)}%`;
+        } else if (!isLastDay && purchase > 0) {
           if (tab === "equal") action = "Buy 1x";
           else if (tab === "lump") action = "Lump Sum";
           else if (strategy === "Linear") action = "Buy x";
@@ -386,6 +405,7 @@ export default function DCASimulator() {
           risk: d.risk,
           price: d.price,
           purchaseAmt: purchase,
+          sellProceeds: sellProceeds > 0 ? sellProceeds : null,
         });
       }
 
@@ -427,10 +447,10 @@ export default function DCASimulator() {
       stats: {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
         lastPrice, currentPortfolio, gain, gainPct,
-        totalMonths: Math.round(rangeData.length / 30), buyCount,
+        totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -620,6 +640,18 @@ export default function DCASimulator() {
                   style={{ width: 120, accentColor: "#6C8EFF", cursor: "pointer" }}
                 />
               </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Sell Strategy</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
+                  {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
+                </div>
+                {sellEnabled && (
+                  <div style={{ fontSize: 10, color: "#f87171", marginTop: 4, lineHeight: 1.5 }}>
+                    Sell 5% if risk &gt; 0.80<br/>Sell 10% if risk &gt; 0.90
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -760,6 +792,18 @@ export default function DCASimulator() {
                   </div>
                 </div>
 
+                {sellEnabled && stats.totalSellProceeds > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Sell Proceeds</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#f87171", fontFamily: "'Space Grotesk', sans-serif" }}>
+                      {fmt$(stats.totalSellProceeds)}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                      {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ marginTop: "auto" }}>
                   <div style={{ fontSize: 10, color: "#555", marginBottom: 8 }}>Risk Scale</div>
                   {[
@@ -801,19 +845,23 @@ export default function DCASimulator() {
                 </thead>
                 <tbody>
                   {tradeLog.map((row, i) => {
-                    const isBuy = row.action !== "None";
-                    const riskColor = row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
+                    const isBuy = row.action.startsWith("Buy") || row.action === "Lump Sum";
+                    const isSell = row.action.startsWith("Sell");
+                    const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: i % 2 === 0 ? "transparent" : "#0a0a1a" }}>
                         <td style={{ padding: "5px 10px", color: "#888", whiteSpace: "nowrap" }}>{row.date}</td>
-                        <td style={{ padding: "5px 10px", color: isBuy ? "#6C8EFF" : "#555", fontWeight: isBuy ? 500 : 400 }}>{row.action}</td>
+                        <td style={{ padding: "5px 10px", color: isSell ? "#f87171" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell) ? 500 : 400 }}>{row.action}</td>
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>
                         <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{fmt$(row.price)}</td>
                         <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{row.accumulated?.toFixed(4)} {asset.id}</td>
                         <td style={{ padding: "5px 10px", color: "#888" }}>{fmt$(row.invested ?? 0)}</td>
-                        <td style={{ padding: "5px 10px", color: isBuy ? "#22c55e" : "#888", fontWeight: isBuy ? 500 : 400 }}>{fmt$(row.portfolioValue ?? 0)}</td>
+                        <td style={{ padding: "5px 10px", color: isSell ? "#f87171" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
+                          {fmt$(row.portfolioValue ?? 0)}
+                          {isSell && row.sellProceeds && <span style={{ color: "#f87171", fontSize: 10, display: "block" }}>−{fmt$(row.sellProceeds)} sold</span>}
+                        </td>
                       </tr>
                     );
                   })}

@@ -239,28 +239,13 @@ export default function DCASimulator() {
     fetchAssetData();
   }, [assetId]);
 
-  // Reset date range when switching assets
+  // When switching assets, only clamp startDate if it's before the available data
+  // This preserves the user's manually chosen date across asset switches
   useEffect(() => {
-    const defaults = {
-      // Crypto
-      BTC: "2022-02-02", ETH: "2022-02-02", SOL: "2022-02-02",
-      // Stocks
-      AMD: "2022-02-02", AMZN: "2022-02-02", AVGO: "2022-02-02",
-      BMNR: "2024-01-01", "BRK-B": "2022-02-02", CDNS: "2022-02-02",
-      CEG: "2022-02-02", COIN: "2022-02-02", CRWD: "2022-02-02",
-      DDOG: "2022-02-02", GOOG: "2022-02-02", HOOD: "2022-08-01",
-      IREN: "2023-01-01", META: "2022-02-02", MSFT: "2022-02-02",
-      MSTR: "2022-02-02", MU: "2022-02-02", NFLX: "2022-02-02",
-      NVDA: "2022-02-02", OKLO: "2024-05-01", PLTR: "2022-02-02",
-      QCOM: "2022-02-02", TSLA: "2022-02-02", TSM: "2022-02-02",
-      TTD: "2022-02-02", VRT: "2022-02-02",
-      // ETFs
-      GDX: "2022-02-02", GLD: "2022-02-02", IBIT: "2024-01-01",
-      MAGS: "2024-01-01", SCHD: "2022-02-02", SMH: "2022-02-02",
-      VOO: "2022-02-02", XLK: "2022-02-02",
-    };
-    setStartDate(defaults[assetId] ?? "2022-02-02");
-  }, [assetId]);
+    if (dailyData.length === 0) return;
+    const earliest = dailyData[0].date.toISOString().slice(0, 10);
+    if (startDate < earliest) setStartDate(earliest);
+  }, [assetId, dailyData]);
 
   const riskBand = RISK_BANDS[riskBandIdx];
   const minDate = dailyData[0]?.date.toISOString().slice(0, 10) ?? "2012-01-01";

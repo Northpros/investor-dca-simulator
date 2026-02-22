@@ -144,6 +144,8 @@ export default function DCASimulator() {
   const [scaleY, setScaleY] = useState("Lin");
   const [riskOffset, setRiskOffset] = useState(-0.02);
   const [sellEnabled, setSellEnabled] = useState(false);
+  const [sell80, setSell80] = useState(true);
+  const [sell90, setSell90] = useState(true);
 
   const [dailyData, setDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -354,8 +356,8 @@ export default function DCASimulator() {
       let sellPct = 0;
       let sellProceeds = 0;
       if (sellEnabled && isBuyDay && totalAsset > 0 && !isLastDay) {
-        if (d.risk >= 0.90) sellPct = 0.10;
-        else if (d.risk >= 0.80) sellPct = 0.05;
+        if (sell90 && d.risk >= 0.90) sellPct = 0.10;
+        else if (sell80 && d.risk >= 0.80 && d.risk < 0.90) sellPct = 0.05;
         if (sellPct > 0) {
           const assetSold = totalAsset * sellPct;
           sellProceeds = assetSold * d.price;
@@ -432,7 +434,7 @@ export default function DCASimulator() {
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -635,8 +637,17 @@ export default function DCASimulator() {
               </div>
             </div>
             {sellEnabled && (
-              <div style={{ fontSize: 10, color: "#f87171", lineHeight: 1.8 }}>
-                Sell <strong>5%</strong> holdings when risk &gt; 0.80 &nbsp;·&nbsp; Sell <strong>10%</strong> when risk &gt; 0.90
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 2 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
+                  <input type="checkbox" checked={sell80} onChange={e => setSell80(e.target.checked)}
+                    style={{ accentColor: "#f59e0b", width: 14, height: 14, cursor: "pointer" }} />
+                  <span style={{ color: sell80 ? "#f59e0b" : "#555" }}>Sell <strong>5%</strong> at risk &gt; 0.80</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
+                  <input type="checkbox" checked={sell90} onChange={e => setSell90(e.target.checked)}
+                    style={{ accentColor: "#f59e0b", width: 14, height: 14, cursor: "pointer" }} />
+                  <span style={{ color: sell90 ? "#f59e0b" : "#555" }}>Sell <strong>10%</strong> at risk &gt; 0.90</span>
+                </label>
               </div>
             )}
           </div>

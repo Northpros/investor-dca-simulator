@@ -350,7 +350,7 @@ export default function DCASimulator() {
     const chartData = [];
     const riskData = [];
     const lumpPrice = rangeData[0]?.price ?? 1;
-    const lumpEquiv = baseAmount * Math.max(rangeData.length / 30, 1);
+    const lumpEquiv = tab === "lump" ? baseAmount : baseAmount * Math.max(rangeData.length / 30, 1);
     const lumpAsset = lumpEquiv / lumpPrice;
 
     // Build the set of scheduled day indices ONCE — exactly one per period

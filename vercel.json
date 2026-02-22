@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/yahoo/:ticker",
+      "destination": "https://query1.finance.yahoo.com/v8/finance/chart/:ticker?interval=1d&range=15y"
+    }
+  ]
+}

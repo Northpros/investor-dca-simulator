@@ -165,10 +165,8 @@ export default function DCASimulator() {
             .filter(([ts]) => ts >= new Date("2012-01-01").getTime())
             .map(([ts, price]) => ({ ts, date: new Date(ts), price }));
         } else {
-          // Yahoo Finance via corsproxy.io — bypasses CORS restriction
-          const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1d&range=15y`;
-          const proxied = `https://corsproxy.io/?url=${encodeURIComponent(yahooUrl)}`;
-          const res = await fetch(proxied);
+          // Yahoo Finance via Vercel proxy rewrite (vercel.json) — no CORS issues
+          const res = await fetch(`/api/yahoo/${asset.ticker}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const result = json.chart?.result?.[0];

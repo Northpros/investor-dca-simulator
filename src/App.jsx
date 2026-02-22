@@ -275,37 +275,24 @@ export default function DCASimulator() {
       .map(d => ({ ...d, risk: parseFloat(Math.min(1, Math.max(0, d.risk + riskOffset)).toFixed(4)) }));
   }, [dailyData, startDate, endDate, riskOffset]);
 
-  // For monthly purchases: fire on the target day OR the next available
-  // trading day if the target falls on a weekend/holiday (missing from data).
-  // We do this by checking: has the target DOM passed this month, and have
-  // we not yet purchased this month?
-  function isPurchaseDay(d, freq, dom, rangeData, idx) {
-    const date = d.date;
-    if (freq === "Daily") return true;
-    if (freq === "Weekly") return date.getDay() === 1;
-    if (freq === "Monthly") {
-      const dayNum = date.getDate();
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      // Exact match
-      if (dayNum === dom) return true;
-      // If we're past the target day, check if target day was missing
-      // (i.e. no data point existed for that exact day this month)
-      if (dayNum > dom) {
-        // Check if any earlier data point this month already matched
-        const prevInMonth = idx > 0 && rangeData.slice(Math.max(0, idx - (dayNum - dom) - 2), idx).some(p => {
-          return p.date.getMonth() === month &&
-                 p.date.getFullYear() === year &&
-                 p.date.getDate() >= dom &&
-                 p.date.getDate() < dayNum;
-        });
-        if (prevInMonth) return false; // already had a day on or after target
-        // This is the first day on/after target this month — fire here
-        return true;
+  // isPurchaseDay: returns true on the scheduled day OR the next available
+  // trading day if the target falls on a weekend/holiday.
+  // Uses a simple external tracker object to ensure exactly ONE fire per period.
+  function buildPurchaseDaySet(data, freq, dom) {
+    const fired = new Set();
+    data.forEach((d, i) => {
+      const date = d.date;
+      if (freq === "Daily") { fired.add(i); return; }
+      if (freq === "Weekly") { if (date.getDay() === 1) fired.add(i); return; }
+      if (freq === "Monthly") {
+        const key = `${date.getFullYear()}-${date.getMonth()}`;
+        if (!fired.has(key) && date.getDate() >= dom) {
+          fired.add(key);
+          fired.add(i); // mark this index as the purchase day
+        }
       }
-      return false;
-    }
-    return false;
+    });
+    return fired;
   }
 
   // Build exponential tiers dynamically from the selected band.
@@ -355,23 +342,27 @@ export default function DCASimulator() {
     const lumpEquiv = baseAmount * Math.max(rangeData.length / 30, 1);
     const lumpAsset = lumpEquiv / lumpPrice;
 
+    // Build the set of scheduled day indices ONCE — exactly one per period
+    const scheduledDays = buildPurchaseDaySet(rangeData, frequency, dayOfMonth);
+
     for (let i = 0; i < rangeData.length; i++) {
       const d = rangeData[i];
       let purchase = 0;
       const isLastDay = i === rangeData.length - 1;
+      const isBuyDay = scheduledDays.has(i);
+
       if (tab === "equal") {
-        if (isPurchaseDay(d, frequency, dayOfMonth, rangeData, i) && !isLastDay) purchase = baseAmount;
+        if (isBuyDay && !isLastDay) purchase = baseAmount;
       } else if (tab === "lump") {
         if (i === 0) purchase = lumpEquiv;
       } else {
-        if (isPurchaseDay(d, frequency, dayOfMonth, rangeData, i) && !isLastDay) {
+        if (isBuyDay && !isLastDay) {
           const mult = getMultiplier(d.risk, riskBand, strategy);
           if (mult > 0) { purchase = baseAmount * mult; buyCount++; }
         }
       }
 
-      // Only evaluate buys/sells on scheduled days (same frequency as purchases)
-      const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth, rangeData, i);
+      // isBuyDay already set above from scheduledDays
 
       // Sell logic — only triggers on scheduled days, same as buys
       let sellPct = 0;

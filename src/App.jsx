@@ -84,24 +84,45 @@ export default function DCASimulator() {
   const [baseAmount, setBaseAmount] = useState(1000);
   // ── Asset catalogue ───────────────────────────────────────────────────────
   const ASSETS = [
-    // Crypto (CoinGecko)
-    { id: "BTC",  label: "BTC (Bitcoin)",  type: "binance", cgId: null,      ticker: "BTCUSDT", csvUrl: null },
-    { id: "SOL",  label: "SOL (Solana)",   type: "binance", cgId: null,      ticker: "SOLUSDT", csvUrl: null },
-    // Stocks (Yahoo Finance)
-    { id: "TSLA", label: "TSLA (Tesla)",           type: "stock", cgId: null, ticker: "TSLA" },
-    { id: "NVDA", label: "NVDA (Nvidia)",           type: "stock", cgId: null, ticker: "NVDA" },
-    { id: "MSTR", label: "MSTR (MicroStrategy)",   type: "stock", cgId: null, ticker: "MSTR" },
-    { id: "AMD",  label: "AMD",                    type: "stock", cgId: null, ticker: "AMD"  },
-    { id: "TSM",  label: "TSM (TSMC)",             type: "stock", cgId: null, ticker: "TSM"  },
-    { id: "MU",   label: "MU (Micron)",            type: "stock", cgId: null, ticker: "MU"   },
-    { id: "PLTR", label: "PLTR (Palantir)",        type: "stock", cgId: null, ticker: "PLTR" },
-    { id: "HOOD", label: "HOOD (Robinhood)",       type: "stock", cgId: null, ticker: "HOOD" },
-    { id: "OKLO", label: "OKLO (Oklo)",            type: "stock", cgId: null, ticker: "OKLO" },
-    { id: "CEG",  label: "CEG (Constellation)",    type: "stock", cgId: null, ticker: "CEG"  },
-    // ETFs
-    { id: "MAGS", label: "MAGS (Magnificent 7 ETF)", type: "etf", cgId: null, ticker: "MAGS" },
-    { id: "SMH",  label: "SMH (Semiconductors ETF)", type: "etf", cgId: null, ticker: "SMH"  },
-    { id: "GLD",  label: "GLD (Gold ETF)",            type: "etf", cgId: null, ticker: "GLD"  },
+    // Crypto — Binance
+    { id: "BTC",  label: "BTC (Bitcoin)", type: "binance", cgId: null, ticker: "BTCUSDT", csvUrl: null },
+    { id: "SOL",  label: "SOL (Solana)",  type: "binance", cgId: null, ticker: "SOLUSDT", csvUrl: null },
+    // Stocks — Yahoo Finance (alphabetical)
+    { id: "AMD",   label: "AMD (Advanced Micro Devices)", type: "stock", cgId: null, ticker: "AMD"   },
+    { id: "AMZN",  label: "AMZN (Amazon)",                type: "stock", cgId: null, ticker: "AMZN"  },
+    { id: "AVGO",  label: "AVGO (Broadcom)",              type: "stock", cgId: null, ticker: "AVGO"  },
+    { id: "BMNR",  label: "BMNR (Bitmine)",               type: "stock", cgId: null, ticker: "BMNR"  },
+    { id: "BRK-B", label: "BRK.B (Berkshire Hathaway)",  type: "stock", cgId: null, ticker: "BRK-B" },
+    { id: "CDNS",  label: "CDNS (Cadence Design)",        type: "stock", cgId: null, ticker: "CDNS"  },
+    { id: "CEG",   label: "CEG (Constellation Energy)",   type: "stock", cgId: null, ticker: "CEG"   },
+    { id: "COIN",  label: "COIN (Coinbase)",              type: "stock", cgId: null, ticker: "COIN"  },
+    { id: "CRWD",  label: "CRWD (CrowdStrike)",           type: "stock", cgId: null, ticker: "CRWD"  },
+    { id: "DDOG",  label: "DDOG (Datadog)",               type: "stock", cgId: null, ticker: "DDOG"  },
+    { id: "GOOG",  label: "GOOG (Alphabet)",              type: "stock", cgId: null, ticker: "GOOG"  },
+    { id: "HOOD",  label: "HOOD (Robinhood)",             type: "stock", cgId: null, ticker: "HOOD"  },
+    { id: "IREN",  label: "IREN (Iris Energy)",           type: "stock", cgId: null, ticker: "IREN"  },
+    { id: "META",  label: "META (Meta)",                  type: "stock", cgId: null, ticker: "META"  },
+    { id: "MSFT",  label: "MSFT (Microsoft)",             type: "stock", cgId: null, ticker: "MSFT"  },
+    { id: "MSTR",  label: "MSTR (MicroStrategy)",         type: "stock", cgId: null, ticker: "MSTR"  },
+    { id: "MU",    label: "MU (Micron)",                  type: "stock", cgId: null, ticker: "MU"    },
+    { id: "NFLX",  label: "NFLX (Netflix)",               type: "stock", cgId: null, ticker: "NFLX"  },
+    { id: "NVDA",  label: "NVDA (Nvidia)",                type: "stock", cgId: null, ticker: "NVDA"  },
+    { id: "OKLO",  label: "OKLO (Oklo)",                  type: "stock", cgId: null, ticker: "OKLO"  },
+    { id: "PLTR",  label: "PLTR (Palantir)",              type: "stock", cgId: null, ticker: "PLTR"  },
+    { id: "QCOM",  label: "QCOM (Qualcomm)",              type: "stock", cgId: null, ticker: "QCOM"  },
+    { id: "TSLA",  label: "TSLA (Tesla)",                 type: "stock", cgId: null, ticker: "TSLA"  },
+    { id: "TSM",   label: "TSM (TSMC)",                   type: "stock", cgId: null, ticker: "TSM"   },
+    { id: "TTD",   label: "TTD (The Trade Desk)",         type: "stock", cgId: null, ticker: "TTD"   },
+    { id: "VRT",   label: "VRT (Vertiv)",                 type: "stock", cgId: null, ticker: "VRT"   },
+    // ETFs — Yahoo Finance (alphabetical)
+    { id: "GDX",   label: "GDX (Gold Miners ETF)",        type: "etf", cgId: null, ticker: "GDX"   },
+    { id: "GLD",   label: "GLD (Gold ETF)",               type: "etf", cgId: null, ticker: "GLD"   },
+    { id: "IBIT",  label: "IBIT (Bitcoin ETF)",           type: "etf", cgId: null, ticker: "IBIT"  },
+    { id: "MAGS",  label: "MAGS (Magnificent 7 ETF)",     type: "etf", cgId: null, ticker: "MAGS"  },
+    { id: "SCHD",  label: "SCHD (Schwab Dividend ETF)",   type: "etf", cgId: null, ticker: "SCHD"  },
+    { id: "SMH",   label: "SMH (Semiconductors ETF)",     type: "etf", cgId: null, ticker: "SMH"   },
+    { id: "VOO",   label: "VOO (S&P 500 ETF)",            type: "etf", cgId: null, ticker: "VOO"   },
+    { id: "XLK",   label: "XLK (Tech Sector ETF)",        type: "etf", cgId: null, ticker: "XLK"   },
   ];
 
   const [assetId, setAssetId] = useState("BTC");
@@ -205,12 +226,22 @@ export default function DCASimulator() {
   // Reset date range when switching assets
   useEffect(() => {
     const defaults = {
+      // Crypto
       BTC: "2022-02-02", SOL: "2022-02-02",
-      TSLA: "2022-02-02", NVDA: "2022-02-02", MSTR: "2022-02-02",
-      AMD: "2022-02-02", TSM: "2022-02-02", MU: "2022-02-02",
-      PLTR: "2022-02-02", HOOD: "2022-08-01", OKLO: "2024-05-01",
-      CEG: "2022-02-02", MAGS: "2024-01-01", SMH: "2022-02-02",
-      GLD: "2022-02-02",
+      // Stocks
+      AMD: "2022-02-02", AMZN: "2022-02-02", AVGO: "2022-02-02",
+      BMNR: "2024-01-01", "BRK-B": "2022-02-02", CDNS: "2022-02-02",
+      CEG: "2022-02-02", COIN: "2022-02-02", CRWD: "2022-02-02",
+      DDOG: "2022-02-02", GOOG: "2022-02-02", HOOD: "2022-08-01",
+      IREN: "2023-01-01", META: "2022-02-02", MSFT: "2022-02-02",
+      MSTR: "2022-02-02", MU: "2022-02-02", NFLX: "2022-02-02",
+      NVDA: "2022-02-02", OKLO: "2024-05-01", PLTR: "2022-02-02",
+      QCOM: "2022-02-02", TSLA: "2022-02-02", TSM: "2022-02-02",
+      TTD: "2022-02-02", VRT: "2022-02-02",
+      // ETFs
+      GDX: "2022-02-02", GLD: "2022-02-02", IBIT: "2024-01-01",
+      MAGS: "2024-01-01", SCHD: "2022-02-02", SMH: "2022-02-02",
+      VOO: "2022-02-02", XLK: "2022-02-02",
     };
     setStartDate(defaults[assetId] ?? "2022-02-02");
   }, [assetId]);

@@ -274,11 +274,36 @@ export default function DCASimulator() {
       .map(d => ({ ...d, risk: parseFloat(Math.min(1, Math.max(0, d.risk + riskOffset)).toFixed(4)) }));
   }, [dailyData, startDate, endDate, riskOffset]);
 
-  function isPurchaseDay(d, freq, dom) {
+  // For monthly purchases: fire on the target day OR the next available
+  // trading day if the target falls on a weekend/holiday (missing from data).
+  // We do this by checking: has the target DOM passed this month, and have
+  // we not yet purchased this month?
+  function isPurchaseDay(d, freq, dom, rangeData, idx) {
     const date = d.date;
     if (freq === "Daily") return true;
     if (freq === "Weekly") return date.getDay() === 1;
-    if (freq === "Monthly") return date.getDate() === dom;
+    if (freq === "Monthly") {
+      const dayNum = date.getDate();
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      // Exact match
+      if (dayNum === dom) return true;
+      // If we're past the target day, check if target day was missing
+      // (i.e. no data point existed for that exact day this month)
+      if (dayNum > dom) {
+        // Check if any earlier data point this month already matched
+        const prevInMonth = idx > 0 && rangeData.slice(Math.max(0, idx - (dayNum - dom) - 2), idx).some(p => {
+          return p.date.getMonth() === month &&
+                 p.date.getFullYear() === year &&
+                 p.date.getDate() >= dom &&
+                 p.date.getDate() < dayNum;
+        });
+        if (prevInMonth) return false; // already had a day on or after target
+        // This is the first day on/after target this month — fire here
+        return true;
+      }
+      return false;
+    }
     return false;
   }
 
@@ -334,18 +359,18 @@ export default function DCASimulator() {
       let purchase = 0;
       const isLastDay = i === rangeData.length - 1;
       if (tab === "equal") {
-        if (isPurchaseDay(d, frequency, dayOfMonth) && !isLastDay) purchase = baseAmount;
+        if (isPurchaseDay(d, frequency, dayOfMonth, rangeData, i) && !isLastDay) purchase = baseAmount;
       } else if (tab === "lump") {
         if (i === 0) purchase = lumpEquiv;
       } else {
-        if (isPurchaseDay(d, frequency, dayOfMonth) && !isLastDay) {
+        if (isPurchaseDay(d, frequency, dayOfMonth, rangeData, i) && !isLastDay) {
           const mult = getMultiplier(d.risk, riskBand, strategy);
           if (mult > 0) { purchase = baseAmount * mult; buyCount++; }
         }
       }
 
       // Build trade log entry on purchase days and last day
-      const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth);
+      const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth, rangeData, i);
       if (isBuyDay || isLastDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
         let action = "None";

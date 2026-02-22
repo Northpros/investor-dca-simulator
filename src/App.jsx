@@ -370,10 +370,13 @@ export default function DCASimulator() {
         }
       }
 
-      // Sell logic — check risk thresholds on every day when sell is enabled
+      // Only evaluate buys/sells on scheduled days (same frequency as purchases)
+      const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth, rangeData, i);
+
+      // Sell logic — only triggers on scheduled days, same as buys
       let sellPct = 0;
       let sellProceeds = 0;
-      if (sellEnabled && totalAsset > 0 && !isLastDay) {
+      if (sellEnabled && isBuyDay && totalAsset > 0 && !isLastDay) {
         if (d.risk >= 0.90) sellPct = 0.10;
         else if (d.risk >= 0.80) sellPct = 0.05;
         if (sellPct > 0) {
@@ -385,8 +388,6 @@ export default function DCASimulator() {
         }
       }
 
-      // Build trade log entry on purchase days, sell days, and last day
-      const isBuyDay = isPurchaseDay(d, frequency, dayOfMonth, rangeData, i);
       const isSellDay = sellPct > 0;
       if (isBuyDay || isSellDay || isLastDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
@@ -409,7 +410,7 @@ export default function DCASimulator() {
         });
       }
 
-      if (purchase > 0) { totalInvested += purchase; totalAsset += purchase / d.price; }
+      if (purchase > 0 && !isSellDay) { totalInvested += purchase; totalAsset += purchase / d.price; }
 
       // Update tradeLog entry with running totals (after purchase)
       if (tradeLog.length > 0 && (isBuyDay || isLastDay)) {
@@ -640,20 +641,24 @@ export default function DCASimulator() {
                   style={{ width: 120, accentColor: "#6C8EFF", cursor: "pointer" }}
                 />
               </div>
-              <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Sell Strategy</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
-                  {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
-                </div>
-                {sellEnabled && (
-                  <div style={{ fontSize: 10, color: "#f87171", marginTop: 4, lineHeight: 1.5 }}>
-                    Sell 5% if risk &gt; 0.80<br/>Sell 10% if risk &gt; 0.90
-                  </div>
-                )}
-              </div>
             </div>
           )}
+
+          {/* Sell Strategy — always visible */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Sell Strategy</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
+                {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
+              </div>
+            </div>
+            {sellEnabled && (
+              <div style={{ fontSize: 10, color: "#f87171", lineHeight: 1.8 }}>
+                Sell <strong>5%</strong> holdings when risk &gt; 0.80 &nbsp;·&nbsp; Sell <strong>10%</strong> when risk &gt; 0.90
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Loading */}

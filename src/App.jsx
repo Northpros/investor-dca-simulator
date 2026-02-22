@@ -282,18 +282,15 @@ export default function DCASimulator() {
     return fired;
   }
 
-  // Build exponential tiers dynamically from the selected band.
-  // The selected band is the TOP tier (1x). Each 0.1 step below doubles.
-  // e.g. band 0.4–0.5 → tiers: [0.4,0.5]=1x [0.3,0.4]=2x [0.2,0.3]=4x [0.1,0.2]=8x [0,0.1]=16x
+  // Build exponential tiers: 1x, 2x, 4x, 8x, 16x...
+  // e.g. band 0.4–0.5 → [0.4,0.5]=1x [0.3,0.4]=2x [0.2,0.3]=4x [0.1,0.2]=8x [0,0.1]=16x
   function buildExpTiers(band) {
     const tiers = [];
     const step = 0.1;
     let top = parseFloat(band.max.toFixed(3));
     let bot = parseFloat(band.min.toFixed(3));
     let mult = 1;
-    // First tier = selected band itself
     tiers.push({ y1: bot, y2: top, mult });
-    // Extend downward
     while (bot > 0.001) {
       const newBot = parseFloat(Math.max(0, bot - step).toFixed(3));
       mult *= 2;
@@ -303,16 +300,36 @@ export default function DCASimulator() {
     return tiers;
   }
 
+  // Build linear tiers: 1x, 2x, 3x, 4x, 5x...
+  // Same tier boundaries as exponential but multiplier increments by 1 each step down
+  function buildLinearTiers(band) {
+    const tiers = [];
+    const step = 0.1;
+    let top = parseFloat(band.max.toFixed(3));
+    let bot = parseFloat(band.min.toFixed(3));
+    let mult = 1;
+    tiers.push({ y1: bot, y2: top, mult });
+    while (bot > 0.001) {
+      const newBot = parseFloat(Math.max(0, bot - step).toFixed(3));
+      mult += 1;
+      tiers.push({ y1: newBot, y2: bot, mult });
+      bot = newBot;
+    }
+    return tiers;
+  }
+
   const expTiers = buildExpTiers(riskBand);
+  const linearTiers = buildLinearTiers(riskBand);
 
   function getMultiplier(risk, band, strat) {
+    if (risk >= band.max) return 0; // above band = no buy for both modes
     if (strat === "Linear") {
-      if (risk < band.min || risk >= band.max) return 0;
-      return 1;
+      for (const tier of linearTiers) {
+        if (risk >= tier.y1 && risk < tier.y2) return tier.mult;
+      }
+      return 0;
     }
-    // Exponential: no buy above band.max
-    if (risk >= band.max) return 0;
-    // Find which tier this risk falls in
+    // Exponential
     for (const tier of expTiers) {
       if (risk >= tier.y1 && risk < tier.y2) return tier.mult;
     }
@@ -376,7 +393,7 @@ export default function DCASimulator() {
         } else if (!isLastDay && purchase > 0) {
           if (tab === "equal") action = "Buy 1x";
           else if (tab === "lump") action = "Lump Sum";
-          else if (strategy === "Linear") action = "Buy x";
+          else if (strategy === "Linear") action = `Buy ${mult}x`;
           else action = `Buy ${mult}x`;
         }
         tradeLog.push({
@@ -610,7 +627,7 @@ export default function DCASimulator() {
               )}
               {strategy === "Linear" && (
                 <div style={{ fontSize: 11, color: "#555", alignSelf: "flex-end", paddingBottom: 2 }}>
-                  {`Flat $${baseAmount.toLocaleString()} — only buys when risk is within ${riskBand.label}`}
+                  {`$${baseAmount.toLocaleString()} × 1x, 2x, 3x... stepping up every 0.1 below ${riskBand.label}`}
                 </div>
               )}
               <div>
@@ -734,20 +751,23 @@ export default function DCASimulator() {
                       );
                     })}
 
-                    {/* Linear mode */}
-                    {tab === "dynamic" && strategy === "Linear" && (
-                      <ReferenceArea
-                        y1={riskBand.min} y2={riskBand.max}
-                        fill="#22c55e" fillOpacity={0.25}
-                        stroke="#22c55e" strokeOpacity={0.5} strokeWidth={1}
-                        label={{
-                          value: `Buy $${baseAmount.toLocaleString()} (1x)`,
-                          fill: "#4ade80", fontSize: 9,
-                          fontFamily: "'DM Mono', monospace",
-                          position: "insideRight",
-                        }}
-                      />
-                    )}
+                    {/* Linear mode — show each tier like exponential */}
+                    {tab === "dynamic" && strategy === "Linear" && linearTiers.map(({ y1, y2, mult }, idx) => {
+                      const alpha = 0.13 + (idx / Math.max(linearTiers.length - 1, 1)) * 0.33;
+                      return (
+                        <ReferenceArea
+                          key={mult} y1={y1} y2={y2}
+                          fill="#22c55e" fillOpacity={alpha}
+                          stroke="#22c55e" strokeOpacity={0.35} strokeWidth={0.5}
+                          label={{
+                            value: `Buy $${(baseAmount * mult).toLocaleString()} (${mult}x)`,
+                            fill: "#4ade80", fontSize: 9,
+                            fontFamily: "'DM Mono', monospace",
+                            position: "insideRight",
+                          }}
+                        />
+                      );
+                    })}
 
                     <Line type="monotone" dataKey="risk" name="Risk" stroke="#aabbff" strokeWidth={1.5} dot={false} />
                   </ComposedChart>

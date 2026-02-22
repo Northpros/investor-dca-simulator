@@ -86,6 +86,7 @@ export default function DCASimulator() {
   const ASSETS = [
     // Crypto — Binance
     { id: "BTC",  label: "BTC (Bitcoin)", type: "binance", cgId: null, ticker: "BTCUSDT", csvUrl: null },
+    { id: "ETH",  label: "ETH (Ethereum)", type: "binance", cgId: null, ticker: "ETHUSDT", csvUrl: null },
     { id: "SOL",  label: "SOL (Solana)",  type: "binance", cgId: null, ticker: "SOLUSDT", csvUrl: null },
     // Stocks — Yahoo Finance (alphabetical)
     { id: "AMD",   label: "AMD (Advanced Micro Devices)", type: "stock", cgId: null, ticker: "AMD"   },
@@ -152,27 +153,30 @@ export default function DCASimulator() {
 
         if (asset.type === "binance") {
           // Binance public API — CORS-friendly, no key needed, full daily history
-          // Fetch in batches of 1000 candles (max per request) going back to 2020
-          const allCandles = [];
-          let endTime = Date.now();
-          const startTime = asset.id === "BTC"
-            ? new Date("2017-01-01").getTime()
+          // BTC and ETH both have data from 2017 on Binance
+          const startTime = ["BTC","ETH"].includes(asset.id)
+            ? new Date("2017-07-01").getTime()
             : new Date("2020-01-01").getTime();
-          while (endTime > startTime) {
+          let batches = [];
+          let endTime = Date.now();
+          let safetyLimit = 10; // max 10 requests = 10,000 days ≈ 27 years
+          while (endTime > startTime && safetyLimit-- > 0) {
             const url = `https://api.binance.com/api/v3/klines?symbol=${asset.ticker}&interval=1d&limit=1000&endTime=${endTime}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
             const candles = await res.json();
-            if (!candles.length) break;
-            allCandles.unshift(...candles);
-            endTime = candles[0][0] - 1; // go back before oldest candle
+            if (!Array.isArray(candles) || candles.length === 0) break;
+            batches.unshift(candles); // prepend batch
+            endTime = candles[0][0] - 1; // step back before oldest
             if (candles.length < 1000) break; // reached the beginning
           }
-          raw = allCandles.map(c => ({
-            ts: c[0],
-            date: new Date(c[0]),
-            price: parseFloat(c[4]), // close price
-          })).filter(d => d.price > 0 && d.ts >= startTime)
+          const allCandles = batches.flat();
+          // Deduplicate by timestamp
+          const seen = new Set();
+          raw = allCandles
+            .filter(c => { if (seen.has(c[0])) return false; seen.add(c[0]); return true; })
+            .map(c => ({ ts: c[0], date: new Date(c[0]), price: parseFloat(c[4]) }))
+            .filter(d => d.price > 0 && isFinite(d.price) && d.ts >= startTime)
             .sort((a, b) => a.ts - b.ts);
           if (raw.length === 0) throw new Error("No data from Binance");
         } else if (asset.type === "crypto") {
@@ -189,6 +193,8 @@ export default function DCASimulator() {
           // Yahoo Finance via Vercel proxy rewrite (vercel.json) — no CORS issues
           const res = await fetch(`/api/yahoo/${asset.ticker}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const contentType = res.headers.get("content-type") ?? "";
+          if (!contentType.includes("json")) throw new Error("Proxy returned non-JSON — check vercel.json is deployed");
           const json = await res.json();
           const result = json.chart?.result?.[0];
           if (!result) throw new Error("No data returned from Yahoo Finance");
@@ -209,7 +215,10 @@ export default function DCASimulator() {
         setLastUpdated(new Date());
       } catch (e) {
         console.error("Fetch failed:", e);
-        setError(`Live data unavailable for ${asset.id} — ${e.message}. Try refreshing or selecting another asset.`);
+        const hint = (asset.type === "stock" || asset.type === "etf")
+          ? " Make sure vercel.json is in your project root."
+          : " Try refreshing.";
+        setError(`Live data unavailable for ${asset.id} — ${e.message}.${hint}`);
         // Always ensure dailyData is set so render doesn't crash
         if (asset.id === "BTC") {
           setDailyData(buildFallbackData());
@@ -227,7 +236,7 @@ export default function DCASimulator() {
   useEffect(() => {
     const defaults = {
       // Crypto
-      BTC: "2022-02-02", SOL: "2022-02-02",
+      BTC: "2022-02-02", ETH: "2022-02-02", SOL: "2022-02-02",
       // Stocks
       AMD: "2022-02-02", AMZN: "2022-02-02", AVGO: "2022-02-02",
       BMNR: "2024-01-01", "BRK-B": "2022-02-02", CDNS: "2022-02-02",
@@ -444,7 +453,7 @@ export default function DCASimulator() {
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: "#fff", letterSpacing: -0.5 }}>
-            Bitcoin DCA Simulation
+            Investor DCA Simulation
           </h1>
           <p style={{ color: "#666", fontSize: 12, margin: "6px 0 0" }}>
             Enter your DCA amount and parameters to simulate different accumulation strategies based on your risk tolerance.

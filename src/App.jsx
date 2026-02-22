@@ -425,6 +425,8 @@ export default function DCASimulator() {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
         lastPrice, currentPortfolio, gain, gainPct,
         totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
+        sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
+        sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
   }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled]);
@@ -781,6 +783,18 @@ export default function DCASimulator() {
                     </div>
                     <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
                       {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1a1a3a" }}>
+                      <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Strategy P&amp;L</div>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {stats.sellPnl >= 0 ? "+" : ""}{fmt$(stats.sellPnl)}
+                      </div>
+                      <div style={{ fontSize: 11, marginTop: 2, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {stats.sellPnl >= 0 ? "+" : ""}{stats.sellPnlPct}% vs invested
+                      </div>
+                      <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
+                        Portfolio + Proceeds − Invested
+                      </div>
                     </div>
                   </div>
                 )}

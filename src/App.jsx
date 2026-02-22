@@ -134,6 +134,8 @@ export default function DCASimulator() {
 
   const [assetId, setAssetId] = useState("BTC");
   const asset = ASSETS.find(a => a.id === assetId) ?? ASSETS[0];
+  const [tickerInput, setTickerInput] = useState("BTC");
+  const [customTicker, setCustomTicker] = useState(null); // null = use dropdown ASSETS
 
   const [frequency, setFrequency] = useState("Monthly");
   const [dayOfMonth, setDayOfMonth] = useState(13);
@@ -160,7 +162,60 @@ export default function DCASimulator() {
         setDailyData([]);
         let raw = [];
 
-        if (asset.type === "binance") {
+        // Determine what to fetch
+        const ticker = customTicker ?? asset.ticker ?? asset.id;
+        const isBinanceAsset = !customTicker && asset.type === "binance";
+
+        // For custom tickers: try Binance first, then Yahoo Finance
+        if (customTicker) {
+          // Try Binance (crypto) first
+          try {
+            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${ticker.toUpperCase()}USDT&interval=1d&limit=1000`;
+            const res = await fetch(binanceUrl);
+            if (res.ok) {
+              const candles = await res.json();
+              if (Array.isArray(candles) && candles.length > 10) {
+                raw = candles.map(c => ({ ts: c[0], date: new Date(c[0]), price: parseFloat(c[4]) }))
+                  .filter(d => d.price > 0);
+                // Fetch more history if needed
+                if (candles.length === 1000) {
+                  let endTime = candles[0][0] - 1;
+                  let safety = 8;
+                  while (safety-- > 0) {
+                    const r2 = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker.toUpperCase()}USDT&interval=1d&limit=1000&endTime=${endTime}`);
+                    if (!r2.ok) break;
+                    const more = await r2.json();
+                    if (!more.length) break;
+                    const older = more.map(c => ({ ts: c[0], date: new Date(c[0]), price: parseFloat(c[4]) })).filter(d => d.price > 0);
+                    raw = [...older, ...raw];
+                    endTime = more[0][0] - 1;
+                    if (more.length < 1000) break;
+                  }
+                }
+                raw.sort((a, b) => a.ts - b.ts);
+              }
+            }
+          } catch(e) { /* fall through to Yahoo */ }
+
+          // If Binance didn't work, try Yahoo Finance
+          if (raw.length === 0) {
+            const res = await fetch(`/api/yahoo/${ticker.toUpperCase()}`);
+            if (!res.ok) throw new Error(`Could not find data for "${ticker.toUpperCase()}" — check the ticker and try again`);
+            const contentType = res.headers.get("content-type") ?? "";
+            if (!contentType.includes("json")) throw new Error("Proxy returned non-JSON — check vercel.json is deployed");
+            const json = await res.json();
+            const result = json.chart?.result?.[0];
+            if (!result) throw new Error(`No data found for "${ticker.toUpperCase()}"`);
+            const timestamps = result.timestamp;
+            const closes = result.indicators.adjclose?.[0]?.adjclose ?? result.indicators.quote?.[0]?.close;
+            if (!timestamps || !closes) throw new Error("Unexpected data format");
+            raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
+              .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
+          }
+
+          if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
+
+        } else if (isBinanceAsset || asset.type === "binance") {
           // Binance public API — CORS-friendly, no key needed, full daily history
           // BTC and ETH both have data from 2017 on Binance
           const startTime = ["BTC","ETH"].includes(asset.id)
@@ -227,7 +282,7 @@ export default function DCASimulator() {
         const hint = (asset.type === "stock" || asset.type === "etf")
           ? " Make sure vercel.json is in your project root."
           : " Try refreshing.";
-        setError(`Live data unavailable for ${asset.id} — ${e.message}.${hint}`);
+        setError(`Live data unavailable for ${displayTicker} — ${e.message}.${hint}`);
         // Always ensure dailyData is set so render doesn't crash
         if (asset.id === "BTC") {
           setDailyData(buildFallbackData());
@@ -239,14 +294,14 @@ export default function DCASimulator() {
       }
     }
     fetchAssetData();
-  }, [assetId]);
+  }, [assetId, customTicker]);
 
   // When switching assets, only clamp startDate if it's before the available data
   useEffect(() => {
     if (dailyData.length === 0) return;
     const earliest = dailyData[0].date.toISOString().slice(0, 10);
     if (startDate < earliest) setStartDate(earliest);
-  }, [assetId, dailyData]);
+  }, [assetId, customTicker, dailyData]);
 
   // When switching to lump sum, extend end date to today so full growth is shown
   useEffect(() => {
@@ -256,6 +311,8 @@ export default function DCASimulator() {
   }, [tab]);
 
   const riskBand = RISK_BANDS[riskBandIdx];
+  const displayTicker = customTicker ?? asset.id;
+  const displayLabel = customTicker ?? asset.label;
   const minDate = dailyData[0]?.date.toISOString().slice(0, 10) ?? "2012-01-01";
   const maxDate = dailyData[dailyData.length - 1]?.date.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10);
 
@@ -518,7 +575,7 @@ export default function DCASimulator() {
           </p>
         </div>
         <div style={{ textAlign: "right", fontSize: 11 }}>
-          {loading && <span style={{ color: "#6C8EFF" }}>{`⟳ Fetching live ${asset.label} price history...`}</span>}
+          {loading && <span style={{ color: "#6C8EFF" }}>{`⟳ Fetching live ${displayLabel} price history...`}</span>}
           {!loading && error && <span style={{ color: "#f59e0b" }}>⚠ {error}</span>}
           {!loading && !error && lastUpdated && (
             <span style={{ color: "#22c55e" }}>✓ Live data · {lastUpdated.toLocaleTimeString()}</span>
@@ -541,25 +598,37 @@ export default function DCASimulator() {
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a3a" }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Asset</div>
-              <select style={{ ...inputStyle, cursor: "pointer", minWidth: 180 }}
-                value={assetId} onChange={e => setAssetId(e.target.value)}>
-                <optgroup label="── Crypto">
-                  {ASSETS.filter(a => a.type === "crypto" || a.type === "binance").map(a => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="── Stocks">
-                  {ASSETS.filter(a => a.type === "stock").map(a => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="── ETFs">
-                  {ASSETS.filter(a => a.type === "etf").map(a => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </optgroup>
-              </select>
+              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Asset Ticker</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  type="text"
+                  style={{ ...inputStyle, width: 90, textTransform: "uppercase" }}
+                  value={tickerInput}
+                  onChange={e => setTickerInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const t = tickerInput.trim().toUpperCase();
+                      if (!t) return;
+                      const known = ASSETS.find(a => a.id === t);
+                      if (known) { setAssetId(t); setCustomTicker(null); }
+                      else setCustomTicker(t);
+                    }
+                  }}
+                  placeholder="BTC"
+                  maxLength={10}
+                />
+                <button
+                  onClick={() => {
+                    const t = tickerInput.trim().toUpperCase();
+                    if (!t) return;
+                    const known = ASSETS.find(a => a.id === t);
+                    if (known) { setAssetId(t); setCustomTicker(null); }
+                    else setCustomTicker(t);
+                  }}
+                  style={{ ...inputStyle, cursor: "pointer", padding: "0 10px", background: "#1a1a3a", color: "#6C8EFF", border: "1px solid #6C8EFF" }}
+                >Go</button>
+              </div>
+              <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>Any stock, ETF or crypto</div>
             </div>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
@@ -683,7 +752,7 @@ export default function DCASimulator() {
         {/* Loading */}
         {loading && (
           <div style={{ padding: 60, textAlign: "center", color: "#6C8EFF", fontSize: 13 }}>
-            {`⟳ Fetching live ${asset.label} price history...`}
+            {`⟳ Fetching live ${displayLabel} price history...`}
           </div>
         )}
 
@@ -695,7 +764,7 @@ export default function DCASimulator() {
               {/* Portfolio Chart */}
               <div style={{ marginBottom: 32 }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: "#c0c0e0", fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {`${asset.id} — Simulated Portfolio Value Over Time`}
+                  {`${displayTicker} — Simulated Portfolio Value Over Time`}
                 </h3>
                 <ResponsiveContainer width="100%" height={260}>
                   <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -803,7 +872,7 @@ export default function DCASimulator() {
                 <div>
                   <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Accumulated Asset</div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {stats.totalAsset.toFixed(5)} <span style={{ fontSize: 12, color: "#888" }}>{asset.id}</span>
+                    {stats.totalAsset.toFixed(5)} <span style={{ fontSize: 12, color: "#888" }}>{displayTicker}</span>
                   </div>
                   <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>Average: {fmt$(stats.avgPrice)}</div>
                   <div style={{ fontSize: 10, color: "#666" }}>Last: {fmt$(stats.lastPrice)}</div>
@@ -886,7 +955,7 @@ export default function DCASimulator() {
               Simulated Trade History
             </h3>
             <p style={{ margin: "0 0 14px", fontSize: 11, color: "#555" }}>
-              {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${asset.id} risk level, every ${frequency.toLowerCase()} on the ${dayOfMonth} — from ${startDate} to ${endDate}`}
+              {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()} on the ${dayOfMonth} — from ${startDate} to ${endDate}`}
             </p>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
@@ -910,7 +979,7 @@ export default function DCASimulator() {
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>
                         <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{fmt$(row.price)}</td>
-                        <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{row.accumulated?.toFixed(4)} {asset.id}</td>
+                        <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{row.accumulated?.toFixed(4)} {displayTicker}</td>
                         <td style={{ padding: "5px 10px", color: "#888" }}>{fmt$(row.invested ?? 0)}</td>
                         <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
                           {fmt$(row.portfolioValue ?? 0)}

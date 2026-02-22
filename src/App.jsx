@@ -91,6 +91,7 @@ export default function DCASimulator() {
     // Stocks — Yahoo Finance (alphabetical)
     { id: "AMD",   label: "AMD (Advanced Micro Devices)", type: "stock", cgId: null, ticker: "AMD"   },
     { id: "AMZN",  label: "AMZN (Amazon)",                type: "stock", cgId: null, ticker: "AMZN"  },
+    { id: "ASST",  label: "ASST (Asset Entities)",         type: "stock", cgId: null, ticker: "ASST"  },
     { id: "AVGO",  label: "AVGO (Broadcom)",              type: "stock", cgId: null, ticker: "AVGO"  },
     { id: "BMNR",  label: "BMNR (Bitmine)",               type: "stock", cgId: null, ticker: "BMNR"  },
     { id: "BRK-B", label: "BRK.B (Berkshire Hathaway)",  type: "stock", cgId: null, ticker: "BRK-B" },
@@ -111,6 +112,7 @@ export default function DCASimulator() {
     { id: "OKLO",  label: "OKLO (Oklo)",                  type: "stock", cgId: null, ticker: "OKLO"  },
     { id: "PLTR",  label: "PLTR (Palantir)",              type: "stock", cgId: null, ticker: "PLTR"  },
     { id: "QCOM",  label: "QCOM (Qualcomm)",              type: "stock", cgId: null, ticker: "QCOM"  },
+    { id: "SMCI",  label: "SMCI (Super Micro Computer)",  type: "stock", cgId: null, ticker: "SMCI"  },
     { id: "TSLA",  label: "TSLA (Tesla)",                 type: "stock", cgId: null, ticker: "TSLA"  },
     { id: "TSM",   label: "TSM (TSMC)",                   type: "stock", cgId: null, ticker: "TSM"   },
     { id: "TTD",   label: "TTD (The Trade Desk)",         type: "stock", cgId: null, ticker: "TTD"   },
@@ -120,8 +122,12 @@ export default function DCASimulator() {
     { id: "GLD",   label: "GLD (Gold ETF)",               type: "etf", cgId: null, ticker: "GLD"   },
     { id: "IBIT",  label: "IBIT (Bitcoin ETF)",           type: "etf", cgId: null, ticker: "IBIT"  },
     { id: "MAGS",  label: "MAGS (Magnificent 7 ETF)",     type: "etf", cgId: null, ticker: "MAGS"  },
+    { id: "QQQ",   label: "QQQ (Nasdaq 100 ETF)",          type: "etf", cgId: null, ticker: "QQQ"   },
     { id: "SCHD",  label: "SCHD (Schwab Dividend ETF)",   type: "etf", cgId: null, ticker: "SCHD"  },
+    { id: "SLV",   label: "SLV (Silver ETF)",              type: "etf", cgId: null, ticker: "SLV"   },
     { id: "SMH",   label: "SMH (Semiconductors ETF)",     type: "etf", cgId: null, ticker: "SMH"   },
+    { id: "SPY",   label: "SPY (S&P 500 ETF)",            type: "etf", cgId: null, ticker: "SPY"   },
+    { id: "USO",   label: "USO (US Oil ETF)",              type: "etf", cgId: null, ticker: "USO"   },
     { id: "VOO",   label: "VOO (S&P 500 ETF)",            type: "etf", cgId: null, ticker: "VOO"   },
     { id: "XLK",   label: "XLK (Tech Sector ETF)",        type: "etf", cgId: null, ticker: "XLK"   },
   ];

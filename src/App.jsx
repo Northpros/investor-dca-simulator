@@ -242,12 +242,18 @@ export default function DCASimulator() {
   }, [assetId]);
 
   // When switching assets, only clamp startDate if it's before the available data
-  // This preserves the user's manually chosen date across asset switches
   useEffect(() => {
     if (dailyData.length === 0) return;
     const earliest = dailyData[0].date.toISOString().slice(0, 10);
     if (startDate < earliest) setStartDate(earliest);
   }, [assetId, dailyData]);
+
+  // When switching to lump sum, extend end date to today so full growth is shown
+  useEffect(() => {
+    if (tab === "lump") {
+      setEndDate(new Date().toISOString().slice(0, 10));
+    }
+  }, [tab]);
 
   const riskBand = RISK_BANDS[riskBandIdx];
   const minDate = dailyData[0]?.date.toISOString().slice(0, 10) ?? "2012-01-01";
@@ -556,7 +562,7 @@ export default function DCASimulator() {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>USD Amount *x</div>
+              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
               <input type="number" style={inputStyle} value={baseAmount || ""}
                 onChange={e => {
                   const val = e.target.value;
@@ -570,13 +576,15 @@ export default function DCASimulator() {
                 }}
                 inputMode="numeric" placeholder="1000" />
             </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Repeat Purchase</div>
-              <select style={{ ...inputStyle, cursor: "pointer" }} value={frequency} onChange={e => setFrequency(e.target.value)}>
-                <option>Daily</option><option>Weekly</option><option>Monthly</option>
-              </select>
-            </div>
-            {frequency === "Monthly" && (
+            {tab !== "lump" && (
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Repeat Purchase</div>
+                <select style={{ ...inputStyle, cursor: "pointer" }} value={frequency} onChange={e => setFrequency(e.target.value)}>
+                  <option>Daily</option><option>Weekly</option><option>Monthly</option>
+                </select>
+              </div>
+            )}
+            {tab !== "lump" && frequency === "Monthly" && (
               <div>
                 <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Day of month</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={dayOfMonth} onChange={e => setDayOfMonth(Number(e.target.value))}>
@@ -585,17 +593,19 @@ export default function DCASimulator() {
               </div>
             )}
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Starting Date</div>
+              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "Purchase Date" : "Starting Date"}</div>
               <input type="date" style={inputStyle} value={startDate}
                 min={minDate} max={endDate}
                 onChange={e => setStartDate(e.target.value)} />
             </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Ending Date</div>
-              <input type="date" style={inputStyle} value={endDate}
-                min={startDate} max={maxDate}
-                onChange={e => setEndDate(e.target.value)} />
-            </div>
+            {tab !== "lump" && (
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Ending Date</div>
+                <input type="date" style={inputStyle} value={endDate}
+                  min={startDate} max={maxDate}
+                  onChange={e => setEndDate(e.target.value)} />
+              </div>
+            )}
           </div>
 
           {tab === "dynamic" && (

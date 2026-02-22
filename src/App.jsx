@@ -320,6 +320,7 @@ export default function DCASimulator() {
   const simulation = useMemo(() => {
     if (!rangeData.length) return { chartData: [], riskData: [], tradeLog: [], stats: null };
     let totalInvested = 0, totalAsset = 0, buyCount = 0, sellCount = 0, totalSellProceeds = 0;
+    let totalAssetNoSell = 0; // tracks holdings as if sell strategy was off
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -387,6 +388,7 @@ export default function DCASimulator() {
       }
 
       if (purchase > 0 && !isSellDay) { totalInvested += purchase; totalAsset += purchase / d.price; }
+      if (purchase > 0) totalAssetNoSell += purchase / d.price; // always accumulate for comparison
 
       // Update tradeLog entry with running totals (after purchase)
       if (tradeLog.length > 0 && (isBuyDay || isLastDay)) {
@@ -426,6 +428,7 @@ export default function DCASimulator() {
         lastPrice, currentPortfolio, gain, gainPct,
         totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
+        noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
@@ -778,23 +781,38 @@ export default function DCASimulator() {
                 {sellEnabled && stats.totalSellProceeds > 0 && (
                   <div>
                     <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Sell Proceeds</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#f87171", fontFamily: "'Space Grotesk', sans-serif" }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#f59e0b", fontFamily: "'Space Grotesk', sans-serif" }}>
                       {fmt$(stats.totalSellProceeds)}
                     </div>
                     <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
                       {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
                     </div>
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1a1a3a" }}>
-                      <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Strategy P&amp;L</div>
+                      <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Net P&amp;L (with sells)</div>
                       <div style={{ fontSize: 16, fontWeight: 600, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
                         {stats.sellPnl >= 0 ? "+" : ""}{fmt$(stats.sellPnl)}
                       </div>
                       <div style={{ fontSize: 11, marginTop: 2, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444" }}>
                         {stats.sellPnl >= 0 ? "+" : ""}{stats.sellPnlPct}% vs invested
                       </div>
-                      <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
+                      <div style={{ fontSize: 10, color: "#555", marginTop: 6 }}>
                         Portfolio + Proceeds − Invested
                       </div>
+                      {(() => {
+                        const diff = (stats.currentPortfolio + stats.totalSellProceeds) - stats.noSellPortfolio;
+                        const isAhead = diff >= 0;
+                        return (
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #1a1a3a" }}>
+                            <div style={{ fontSize: 10, color: "#555", marginBottom: 2 }}>vs Holding (no sells)</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: isAhead ? "#22c55e" : "#ef4444" }}>
+                              {isAhead ? "+" : ""}{fmt$(diff)}
+                            </div>
+                            <div style={{ fontSize: 10, color: isAhead ? "#22c55e" : "#ef4444" }}>
+                              {isAhead ? "▲ Sell strategy helped" : "▼ Sell strategy hurt"}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -846,16 +864,16 @@ export default function DCASimulator() {
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: i % 2 === 0 ? "transparent" : "#0a0a1a" }}>
                         <td style={{ padding: "5px 10px", color: "#888", whiteSpace: "nowrap" }}>{row.date}</td>
-                        <td style={{ padding: "5px 10px", color: isSell ? "#f87171" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell) ? 500 : 400 }}>{row.action}</td>
+                        <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell) ? 500 : 400 }}>{row.action}</td>
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>
                         <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{fmt$(row.price)}</td>
                         <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{row.accumulated?.toFixed(4)} {asset.id}</td>
                         <td style={{ padding: "5px 10px", color: "#888" }}>{fmt$(row.invested ?? 0)}</td>
-                        <td style={{ padding: "5px 10px", color: isSell ? "#f87171" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
+                        <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
                           {fmt$(row.portfolioValue ?? 0)}
-                          {isSell && row.sellProceeds && <span style={{ color: "#f87171", fontSize: 10, display: "block" }}>−{fmt$(row.sellProceeds)} sold</span>}
+                          {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmt$(row.sellProceeds)} cashed</span>}
                         </td>
                       </tr>
                     );

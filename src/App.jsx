@@ -465,8 +465,18 @@ export default function DCASimulator() {
             </div>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>USD Amount *x</div>
-              <input type="number" style={inputStyle} value={baseAmount}
-                onChange={e => setBaseAmount(Math.max(1, Number(e.target.value)))} min={1} />
+              <input type="number" style={inputStyle} value={baseAmount || ""}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === "" || val === "0") { setBaseAmount(""); return; }
+                  const n = Number(val);
+                  if (!isNaN(n) && n >= 0) setBaseAmount(n);
+                }}
+                onBlur={e => {
+                  // When user leaves the field, default to 100 if empty
+                  if (!baseAmount || baseAmount === "") setBaseAmount(100);
+                }}
+                inputMode="numeric" placeholder="1000" />
             </div>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Repeat Purchase</div>

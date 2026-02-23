@@ -79,6 +79,23 @@ function buildFallbackData() {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
+  const KNOWN_NAMES = {
+    BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana",
+    TSLA: "Tesla", NVDA: "Nvidia", MSTR: "MicroStrategy", AMD: "Advanced Micro Devices",
+    AMZN: "Amazon", AVGO: "Broadcom", BMNR: "Bitmine Immersion Technologies",
+    "BRK-B": "Berkshire Hathaway", CDNS: "Cadence Design Systems", CEG: "Constellation Energy",
+    COIN: "Coinbase", CRWD: "CrowdStrike", DDOG: "Datadog", GOOG: "Alphabet (Google)",
+    HOOD: "Robinhood", IREN: "Iris Energy", META: "Meta Platforms", MSFT: "Microsoft",
+    MU: "Micron Technology", NFLX: "Netflix", OKLO: "Oklo", PLTR: "Palantir",
+    QCOM: "Qualcomm", SMCI: "Super Micro Computer", ASST: "Asset Entities",
+    TSM: "TSMC", TTD: "The Trade Desk", VRT: "Vertiv",
+    GDX: "VanEck Gold Miners ETF", GLD: "SPDR Gold Shares",
+    IBIT: "iShares Bitcoin Trust", MAGS: "Roundhill Magnificent Seven ETF",
+    QQQ: "Invesco QQQ (Nasdaq 100)", SCHD: "Schwab US Dividend Equity ETF",
+    SLV: "iShares Silver Trust", SMH: "VanEck Semiconductor ETF",
+    SPY: "SPDR S&P 500 ETF", USO: "United States Oil Fund", VOO: "Vanguard S&P 500 ETF",
+    XLK: "Technology Select Sector SPDR",
+  };
 export default function DCASimulator() {
   const [tab, setTab] = useState("dynamic");
   const [baseAmount, setBaseAmount] = useState(1000);
@@ -136,6 +153,7 @@ export default function DCASimulator() {
   const asset = ASSETS.find(a => a.id === assetId) ?? ASSETS[0];
   const [tickerInput, setTickerInput] = useState("BTC");
   const [customTicker, setCustomTicker] = useState(null); // null = use dropdown ASSETS
+  const [companyName, setCompanyName] = useState("Bitcoin");
 
   const [frequency, setFrequency] = useState("Monthly");
   const [dayOfMonth, setDayOfMonth] = useState(13);
@@ -277,6 +295,23 @@ export default function DCASimulator() {
         const parsed = addMovingAverage(raw);
         setDailyData(parsed);
         setLastUpdated(new Date());
+        // Set company name from lookup or Yahoo metadata
+        const t = customTicker ?? asset.id;
+        if (KNOWN_NAMES[t]) {
+          setCompanyName(KNOWN_NAMES[t]);
+        } else {
+          // Try to get name from Yahoo quote endpoint
+          try {
+            const qRes = await fetch(`/api/yahoo/${t}`);
+            if (qRes.ok) {
+              const qJson = await qRes.json();
+              const name = qJson.chart?.result?.[0]?.meta?.longName
+                        ?? qJson.chart?.result?.[0]?.meta?.shortName
+                        ?? t;
+              setCompanyName(name);
+            }
+          } catch(e) { setCompanyName(t); }
+        }
       } catch (e) {
         console.error("Fetch failed:", e);
         const hint = (asset.type === "stock" || asset.type === "etf")
@@ -520,8 +555,8 @@ export default function DCASimulator() {
 
   const inputStyle = {
     background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 6,
-    color: "#e0e0ff", padding: "6px 10px", fontSize: 13,
-    fontFamily: "'DM Mono', monospace", outline: "none",
+    color: "#e0e0ff", padding: "7px 10px", fontSize: 13, height: 36,
+    fontFamily: "'DM Mono', monospace", outline: "none", boxSizing: "border-box",
   };
   const tabStyle = (t) => ({
     padding: "8px 18px", border: "none",
@@ -594,9 +629,29 @@ export default function DCASimulator() {
           <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Dynamic DCA In</button>
         </div>
 
+        {/* Company Name Banner */}
+        <div style={{ padding: "10px 20px 0", borderBottom: "none" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: "#6C8EFF", letterSpacing: -0.5 }}>
+              {displayTicker}
+            </span>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 400, color: "#888" }}>
+              {companyName}
+            </span>
+            {stats && (
+              <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#e0e0ff" }}>
+                {fmt$(stats.lastPrice)}
+                <span style={{ fontSize: 11, marginLeft: 6, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
+                  {stats.gain >= 0 ? "▲" : "▼"} {Math.abs(stats.gainPct)}%
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Controls */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a3a" }}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ padding: "12px 20px 16px", borderBottom: "1px solid #1a1a3a" }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start", rowGap: 10 }}>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Asset Ticker</div>
               <div style={{ display: "flex", gap: 4 }}>
@@ -625,10 +680,9 @@ export default function DCASimulator() {
                     if (known) { setAssetId(t); setCustomTicker(null); }
                     else setCustomTicker(t);
                   }}
-                  style={{ ...inputStyle, cursor: "pointer", padding: "0 10px", background: "#1a1a3a", color: "#6C8EFF", border: "1px solid #6C8EFF" }}
+                  style={{ ...inputStyle, cursor: "pointer", padding: "0 12px", background: "#1a1a3a", color: "#6C8EFF", border: "1px solid #6C8EFF", flexShrink: 0 }}
                 >Go</button>
               </div>
-              <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>Any stock, ETF or crypto</div>
             </div>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
@@ -678,7 +732,7 @@ export default function DCASimulator() {
           </div>
 
           {tab === "dynamic" && (
-            <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Accumulate up to risk...</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={riskBandIdx} onChange={e => setRiskBandIdx(Number(e.target.value))}>
@@ -724,7 +778,7 @@ export default function DCASimulator() {
           )}
 
           {/* Sell Strategy — always visible */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Sell Strategy</div>
               <div style={{ display: "flex", gap: 4 }}>

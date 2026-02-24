@@ -704,27 +704,28 @@ export default function DCASimulator() {
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: darkMode ? "#fff" : T.text, letterSpacing: -0.5 }}>
               Investor DCA Simulation
             </h1>
-            <button onClick={() => setDarkMode(m => !m)} style={{
-              background: T.inputBg, border: `1px solid ${T.border2}`,
-              borderRadius: 20, padding: "4px 12px", cursor: "pointer",
-              fontSize: 13, color: T.textMid, fontFamily: "'DM Mono', monospace",
-            }}>{darkMode ? "☀ Day" : "🌙 Night"}</button>
           </div>
           <p style={{ color: T.label, fontSize: 12, margin: "6px 0 0" }}>
             Enter your DCA amount and parameters to simulate different accumulation strategies based on your risk tolerance.
           </p>
         </div>
-        <div style={{ textAlign: "right", fontSize: 11 }}>
+        <div style={{ textAlign: "right", fontSize: 11, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <button onClick={() => setDarkMode(m => !m)} style={{
+            background: T.inputBg, border: `1px solid ${T.border2}`,
+            borderRadius: 20, padding: "4px 12px", cursor: "pointer",
+            fontSize: 12, color: T.textMid, fontFamily: "'DM Mono', monospace",
+            marginBottom: 4,
+          }}>{darkMode ? "☀ Day" : "🌙 Night"}</button>
           {loading && <span style={{ color: T.accent }}>{`⟳ Fetching live ${displayLabel} price history...`}</span>}
           {!loading && error && <span style={{ color: "#f59e0b" }}>⚠ {error}</span>}
           {!loading && !error && lastUpdated && (
             <span style={{ color: "#22c55e" }}>✓ Live data · {lastUpdated.toLocaleTimeString()}</span>
           )}
-          {!loading && <div style={{ color: T.textFaint, fontSize: 10, marginTop: 2 }}>{dailyData.length.toLocaleString()} daily data points</div>}
+          {!loading && <div style={{ color: T.textFaint, fontSize: 10 }}>{dailyData.length.toLocaleString()} daily data points</div>}
         </div>
       </div>
 
@@ -1175,7 +1176,7 @@ export default function DCASimulator() {
                     const isInit = row.action === "Initial Position";
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
-                      <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: i % 2 === 0 ? "transparent" : "#0a0a1a" }}>
+                      <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: "transparent" }}>
                         <td style={{ padding: "5px 10px", color: T.textMid, whiteSpace: "nowrap" }}>{row.date}</td>
                         <td style={{ padding: "5px 10px", color: isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell || isInit) ? 500 : 400 }}>{row.action}</td>
                         <td style={{ padding: "5px 10px" }}>

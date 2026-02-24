@@ -1161,22 +1161,7 @@ export default function DCASimulator() {
                   </div>
                 )}
 
-                <div style={{ marginTop: "auto" }}>
-                  <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>Risk Scale</div>
-                  {[
-                    { label: "0.9 – 1.0", color: "#dc2626" },
-                    { label: "0.7 – 0.9", color: "#ea580c" },
-                    { label: "0.5 – 0.7", color: "#ca8a04" },
-                    { label: "0.3 – 0.5", color: "#16a34a" },
-                    { label: "0.1 – 0.3", color: "#15803d" },
-                    { label: "0.0 – 0.1", color: "#166534" },
-                  ].map(r => (
-                    <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, marginBottom: 3 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: r.color, flexShrink: 0 }} />
-                      <span style={{ color: T.label }}>{r.label}</span>
-                    </div>
-                  ))}
-                </div>
+
               </div>
             )}
           </div>

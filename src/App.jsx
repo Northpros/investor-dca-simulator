@@ -79,7 +79,7 @@ function buildFallbackData() {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-  const KNOWN_NAMES = {
+const KNOWN_NAMES = {
     BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana",
     TSLA: "Tesla", NVDA: "Nvidia", MSTR: "MicroStrategy", AMD: "Advanced Micro Devices",
     AMZN: "Amazon", AVGO: "Broadcom", BMNR: "Bitmine Immersion Technologies",
@@ -164,6 +164,10 @@ export default function DCASimulator() {
   const [scaleY, setScaleY] = useState("Lin");
   const [riskOffset, setRiskOffset] = useState(-0.02);
   const [sellEnabled, setSellEnabled] = useState(false);
+  const [initEnabled, setInitEnabled] = useState(false);
+  const [initDate, setInitDate] = useState("2022-01-01");
+  const [initShares, setInitShares] = useState("");
+  const [initAvgPrice, setInitAvgPrice] = useState("");
   const [sell80, setSell80] = useState(true);
   const [sell90, setSell90] = useState(true);
 
@@ -436,11 +440,33 @@ export default function DCASimulator() {
 
   const simulation = useMemo(() => {
     if (!rangeData.length) return { chartData: [], riskData: [], tradeLog: [], stats: null };
-    let totalInvested = 0, totalAsset = 0, buyCount = 0, sellCount = 0, totalSellProceeds = 0;
-    let totalAssetNoSell = 0; // tracks holdings as if sell strategy was off
+
+    // Seed initial position if enabled
+    const initSh = parseFloat(initShares) || 0;
+    const initPx = parseFloat(initAvgPrice) || 0;
+    const initCost = initSh * initPx;
+    let totalInvested = (initEnabled && initSh > 0 && initPx > 0) ? initCost : 0;
+    let totalAsset    = (initEnabled && initSh > 0) ? initSh : 0;
+    let totalAssetNoSell = totalAsset;
+    let buyCount = 0, sellCount = 0, totalSellProceeds = 0;
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
+
+    // Add initial position to trade log
+    if (initEnabled && initSh > 0 && initPx > 0) {
+      tradeLog.push({
+        date: new Date(initDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        action: "Initial Position",
+        risk: null,
+        price: initPx,
+        purchaseAmt: initCost,
+        accumulated: initSh,
+        invested: initCost,
+        portfolioValue: null, // will be set when we hit that date in rangeData
+        isInitial: true,
+      });
+    }
     const lumpPrice = rangeData[0]?.price ?? 1;
     const lumpEquiv = tab === "lump" ? baseAmount : baseAmount * Math.max(rangeData.length / 30, 1);
     const lumpAsset = lumpEquiv / lumpPrice;
@@ -549,7 +575,7 @@ export default function DCASimulator() {
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -801,6 +827,45 @@ export default function DCASimulator() {
               </div>
             )}
           </div>
+
+          {/* Initial Investment */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid #1a1a3a" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Initial Position</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {pillBtn(!initEnabled, () => setInitEnabled(false), "Off")}
+                {pillBtn(initEnabled, () => setInitEnabled(true), "On")}
+              </div>
+            </div>
+            {initEnabled && (<>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Purchase Date</div>
+                <input type="date" style={inputStyle} value={initDate}
+                  min={minDate} max={maxDate}
+                  onChange={e => setInitDate(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Shares / Units</div>
+                <input type="number" style={{ ...inputStyle, width: 110 }}
+                  value={initShares} onChange={e => setInitShares(e.target.value)}
+                  placeholder="e.g. 10" inputMode="numeric" />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Avg Price Paid</div>
+                <input type="number" style={{ ...inputStyle, width: 120 }}
+                  value={initAvgPrice} onChange={e => setInitAvgPrice(e.target.value)}
+                  placeholder="e.g. 45000" inputMode="numeric" />
+              </div>
+              {initShares && initAvgPrice && (
+                <div style={{ alignSelf: "flex-end", paddingBottom: 2 }}>
+                  <div style={{ fontSize: 10, color: "#555" }}>Total Cost</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#6C8EFF", fontFamily: "'Space Grotesk', sans-serif" }}>
+                    {fmt$((parseFloat(initShares) || 0) * (parseFloat(initAvgPrice) || 0))}
+                  </div>
+                </div>
+              )}
+            </>)}
+          </div>
         </div>
 
         {/* Loading */}
@@ -1024,11 +1089,12 @@ export default function DCASimulator() {
                   {tradeLog.map((row, i) => {
                     const isBuy = row.action.startsWith("Buy") || row.action === "Lump Sum";
                     const isSell = row.action.startsWith("Sell");
+                    const isInit = row.action === "Initial Position";
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: i % 2 === 0 ? "transparent" : "#0a0a1a" }}>
                         <td style={{ padding: "5px 10px", color: "#888", whiteSpace: "nowrap" }}>{row.date}</td>
-                        <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell) ? 500 : 400 }}>{row.action}</td>
+                        <td style={{ padding: "5px 10px", color: isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell || isInit) ? 500 : 400 }}>{row.action}</td>
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>

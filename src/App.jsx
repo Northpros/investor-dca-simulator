@@ -670,7 +670,7 @@ export default function DCASimulator() {
   // Currency helpers
   const currSym = currency === "CAD" ? "CA$" : "$";
   const toDisplay = (usdVal) => currency === "CAD" ? usdVal * cadRate : usdVal;
-  const fmtC = (usdVal) => fmtC(toDisplay(usdVal), currSym);
+  const fmtC = (usdVal) => fmt$(toDisplay(usdVal), currSym);
 
   const inputStyle = {
     background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,

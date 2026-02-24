@@ -457,13 +457,13 @@ export default function DCASimulator() {
   const simulation = useMemo(() => {
     if (!rangeData.length) return { chartData: [], riskData: [], tradeLog: [], stats: null };
 
-    // Seed initial position if enabled
+    // Initial position values — added to totals only when initDate is reached in loop
     const initSh = parseFloat(initShares) || 0;
     const initPx = parseFloat(initAvgPrice) || 0;
     const initCost = initSh * initPx;
-    let totalInvested = (initEnabled && initSh > 0 && initPx > 0) ? initCost : 0;
-    let totalAsset    = (initEnabled && initSh > 0) ? initSh : 0;
-    let totalAssetNoSell = totalAsset;
+    let totalInvested = 0;
+    let totalAsset = 0;
+    let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0;
     const tradeLog = [];
     const chartData = [];
@@ -477,6 +477,10 @@ export default function DCASimulator() {
     // If purchase was before our data range, inject immediately as first entry
     if (initTs && rangeData.length > 0 && initTs < rangeData[0].ts) {
       initInjected = true;
+      // Add to totals immediately since purchase is before simulation range
+      totalAsset += initSh;
+      totalAssetNoSell += initSh;
+      totalInvested += initCost;
       tradeLog.push({
         date: new Date(initDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         action: "Initial Position",
@@ -505,13 +509,17 @@ export default function DCASimulator() {
       // Inject initial position at the correct point in time
       if (initTs && !initInjected && d.ts >= initTs) {
         initInjected = true;
+        // NOW add the shares and cost to running totals
+        totalAsset += initSh;
+        totalAssetNoSell += initSh;
+        totalInvested += initCost;
         tradeLog.push({
           date: new Date(initDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
           action: "Initial Position",
           risk: d.risk,
           price: initPx,
           purchaseAmt: initCost,
-          accumulated: totalAsset, // already seeded
+          accumulated: totalAsset,
           invested: totalInvested,
           portfolioValue: totalAsset * d.price,
           isInitial: true,

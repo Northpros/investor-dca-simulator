@@ -469,7 +469,6 @@ export default function DCASimulator() {
     let totalAsset = 0;
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0;
-    const totalPeriods = scheduledDays ? [...scheduledDays].filter(v => typeof v === "number").length : 0;
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -504,6 +503,7 @@ export default function DCASimulator() {
 
     // Build the set of scheduled day indices ONCE — exactly one per period
     const scheduledDays = buildPurchaseDaySet(rangeData, frequency, dayOfMonth);
+    const totalPeriods = [...scheduledDays].filter(v => typeof v === "number").length;
 
     for (let i = 0; i < rangeData.length; i++) {
       const d = rangeData[i];

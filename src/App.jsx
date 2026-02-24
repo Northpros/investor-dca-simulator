@@ -149,20 +149,20 @@ export default function DCASimulator() {
     { id: "XLK",   label: "XLK (Tech Sector ETF)",        type: "etf", cgId: null, ticker: "XLK"   },
   ];
 
-  const [assetId, setAssetId] = useState("BTC");
+  const [assetId, setAssetId] = useState("SPY");
   const asset = ASSETS.find(a => a.id === assetId) ?? ASSETS[0];
-  const [tickerInput, setTickerInput] = useState("BTC");
+  const [tickerInput, setTickerInput] = useState("SPY");
   const [customTicker, setCustomTicker] = useState(null); // null = use dropdown ASSETS
-  const [companyName, setCompanyName] = useState("Bitcoin");
+  const [companyName, setCompanyName] = useState("SPDR S&P 500 ETF");
 
   const [frequency, setFrequency] = useState("Monthly");
   const [dayOfMonth, setDayOfMonth] = useState(13);
   const [startDate, setStartDate] = useState("2022-02-02");
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [riskBandIdx, setRiskBandIdx] = useState(4);
-  const [strategy, setStrategy] = useState("Exponential");
+  const [riskBandIdx, setRiskBandIdx] = useState(5);
+  const [strategy, setStrategy] = useState("Linear");
   const [scaleY, setScaleY] = useState("Lin");
-  const [riskOffset, setRiskOffset] = useState(-0.02);
+  const [riskOffset, setRiskOffset] = useState(-0.05);
   const [sellEnabled, setSellEnabled] = useState(false);
   const [initEnabled, setInitEnabled] = useState(false);
   const [initDate, setInitDate] = useState("2022-01-01");
@@ -342,6 +342,22 @@ export default function DCASimulator() {
     if (startDate < earliest) setStartDate(earliest);
   }, [assetId, customTicker, dailyData]);
 
+  // Auto-adjust risk defaults based on asset type
+  // Crypto: band 0.4-0.499 (idx 4), offset -0.02
+  // Stocks/ETFs: band 0.5-0.599 (idx 5), offset -0.05
+  useEffect(() => {
+    const isCrypto = customTicker
+      ? false  // unknown tickers default to stock settings
+      : (asset.type === "binance" || asset.type === "crypto");
+    if (isCrypto) {
+      setRiskBandIdx(4);
+      setRiskOffset(-0.02);
+    } else {
+      setRiskBandIdx(5);
+      setRiskOffset(-0.05);
+    }
+  }, [assetId, customTicker]);
+
   // When switching to lump sum, extend end date to today so full growth is shown
   useEffect(() => {
     if (tab === "lump") {
@@ -453,8 +469,14 @@ export default function DCASimulator() {
     const chartData = [];
     const riskData = [];
 
-    // Add initial position to trade log
-    if (initEnabled && initSh > 0 && initPx > 0) {
+    // Initial position injection setup
+    // If initDate is before simulation start, we still show it first in the log
+    const initTs = initEnabled && initSh > 0 && initPx > 0
+      ? new Date(initDate).getTime() : null;
+    let initInjected = false;
+    // If purchase was before our data range, inject immediately as first entry
+    if (initTs && rangeData.length > 0 && initTs < rangeData[0].ts) {
+      initInjected = true;
       tradeLog.push({
         date: new Date(initDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         action: "Initial Position",
@@ -463,7 +485,7 @@ export default function DCASimulator() {
         purchaseAmt: initCost,
         accumulated: initSh,
         invested: initCost,
-        portfolioValue: null, // will be set when we hit that date in rangeData
+        portfolioValue: initSh * rangeData[0].price,
         isInitial: true,
       });
     }
@@ -479,6 +501,22 @@ export default function DCASimulator() {
       let purchase = 0;
       const isLastDay = i === rangeData.length - 1;
       const isBuyDay = scheduledDays.has(i);
+
+      // Inject initial position at the correct point in time
+      if (initTs && !initInjected && d.ts >= initTs) {
+        initInjected = true;
+        tradeLog.push({
+          date: new Date(initDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          action: "Initial Position",
+          risk: d.risk,
+          price: initPx,
+          purchaseAmt: initCost,
+          accumulated: totalAsset, // already seeded
+          invested: totalInvested,
+          portfolioValue: totalAsset * d.price,
+          isInitial: true,
+        });
+      }
 
       if (tab === "equal") {
         if (isBuyDay && !isLastDay) purchase = baseAmount;

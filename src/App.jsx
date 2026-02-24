@@ -479,7 +479,7 @@ export default function DCASimulator() {
     let totalInvested = 0;
     let totalAsset = 0;
     let totalAssetNoSell = 0;
-    let buyCount = 0, sellCount = 0, totalSellProceeds = 0;
+    let buyCount = 0, sellCount = 0, totalSellProceeds = 0, totalSellAsset = 0;
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -566,6 +566,7 @@ export default function DCASimulator() {
           sellProceeds = assetSold * d.price;
           totalAsset -= assetSold;
           totalSellProceeds += sellProceeds;
+          totalSellAsset += assetSold;
           sellCount++;
         }
       }
@@ -631,7 +632,7 @@ export default function DCASimulator() {
       stats: {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
         lastPrice, currentPortfolio, gain, gainPct,
-        totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
+        totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds, totalSellAsset,
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
         noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
@@ -1131,6 +1132,14 @@ export default function DCASimulator() {
                     <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                       {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
                     </div>
+                    {stats.totalSellAsset > 0 && (
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>
+                        Avg sell price
+                        <span style={{ color: "#f59e0b", fontWeight: 600, marginLeft: 6 }}>
+                          {fmtC(stats.totalSellProceeds / stats.totalSellAsset)}
+                        </span>
+                      </div>
+                    )}
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Net P&amp;L (with sells)</div>
                       <div style={{ fontSize: 16, fontWeight: 600, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>

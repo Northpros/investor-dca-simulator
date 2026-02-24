@@ -469,6 +469,7 @@ export default function DCASimulator() {
     let totalAsset = 0;
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0;
+    const totalPeriods = scheduledDays ? [...scheduledDays].filter(v => typeof v === "number").length : 0;
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -531,9 +532,9 @@ export default function DCASimulator() {
       }
 
       if (tab === "equal") {
-        if (isBuyDay && !isLastDay) purchase = baseAmount;
+        if (isBuyDay && !isLastDay) { purchase = baseAmount; buyCount++; }
       } else if (tab === "lump") {
-        if (i === 0) purchase = lumpEquiv;
+        if (i === 0) { purchase = lumpEquiv; buyCount++; }
       } else {
         if (isBuyDay && !isLastDay) {
           const mult = getMultiplier(d.risk, riskBand, strategy);
@@ -619,7 +620,7 @@ export default function DCASimulator() {
       stats: {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
         lastPrice, currentPortfolio, gain, gainPct,
-        totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
+        totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds,
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
         noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
@@ -1067,8 +1068,8 @@ export default function DCASimulator() {
                   </div>
                   <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                     {tab === "dynamic"
-                      ? `Buying ${stats.buyCount} of ${stats.totalMonths} months`
-                      : `Over ${stats.totalMonths} months`}
+                      ? `${stats.buyCount} of ${stats.totalPeriods} scheduled ${frequency.toLowerCase()} periods`
+                      : `Over ${stats.totalPeriods} scheduled periods`}
                   </div>
                 </div>
 

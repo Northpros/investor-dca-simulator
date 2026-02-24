@@ -42,10 +42,11 @@ const RISK_BANDS = [
   { label: "0.6 – 0.699", min: 0.6, max: 0.7 },
 ];
 
-function fmt$(v) {
-  if (v >= 1e6) return "$" + (v / 1e6).toFixed(2) + "M";
-  if (v >= 1e3) return "$" + Math.round(v).toLocaleString();
-  return "$" + v.toFixed(2);
+function fmt$(v, sym="$") {
+  if (v == null || isNaN(v)) return sym + "0.00";
+  if (v >= 1e6) return sym + (v / 1e6).toFixed(2) + "M";
+  if (v >= 1e3) return sym + Math.round(v).toLocaleString();
+  return sym + v.toFixed(2);
 }
 function fmtDate(d) {
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
@@ -99,6 +100,8 @@ const KNOWN_NAMES = {
 export default function DCASimulator() {
   const [tab, setTab] = useState("dynamic");
   const [darkMode, setDarkMode] = useState(true);
+  const [currency, setCurrency] = useState("USD");
+  const [cadRate, setCadRate] = useState(1.36); // fallback USD→CAD rate
   const [baseAmount, setBaseAmount] = useState(1000);
   // ── Asset catalogue ───────────────────────────────────────────────────────
   const ASSETS = [
@@ -176,6 +179,14 @@ export default function DCASimulator() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Fetch live USD→CAD rate once on mount
+  useEffect(() => {
+    fetch("https://api.frankfurter.app/latest?from=USD&to=CAD")
+      .then(r => r.json())
+      .then(j => { if (j.rates?.CAD) setCadRate(j.rates.CAD); })
+      .catch(() => {}); // silently keep fallback rate
+  }, []);
 
   useEffect(() => {
     async function fetchAssetData() {
@@ -656,6 +667,11 @@ export default function DCASimulator() {
     label:     "#778",
   };
 
+  // Currency helpers
+  const currSym = currency === "CAD" ? "CA$" : "$";
+  const toDisplay = (usdVal) => currency === "CAD" ? usdVal * cadRate : usdVal;
+  const fmtC = (usdVal) => fmtC(toDisplay(usdVal), currSym);
+
   const inputStyle = {
     background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
     color: T.text, padding: "7px 10px", fontSize: 13, height: 36,
@@ -684,7 +700,7 @@ export default function DCASimulator() {
         <div style={{ color: T.textMid, marginBottom: 4 }}>{label}</div>
         {payload.map((p, i) => (
           <div key={i} style={{ color: p.color || T.text }}>
-            {p.name}: {p.name === "Risk" ? p.value?.toFixed(3) : fmt$(p.value)}
+            {p.name}: {p.name === "Risk" ? p.value?.toFixed(3) : fmtC(p.value)}
           </div>
         ))}
       </div>
@@ -751,7 +767,7 @@ export default function DCASimulator() {
             </span>
             {stats && (
               <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: T.text }}>
-                {fmt$(stats.lastPrice)}
+                {fmtC(stats.lastPrice)}
                 <span style={{ fontSize: 11, marginLeft: 6, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
                   {stats.gain >= 0 ? "▲" : "▼"} {Math.abs(stats.gainPct)}%
                 </span>
@@ -796,7 +812,9 @@ export default function DCASimulator() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>{tab === "lump" ? `${currency} Amount` : `${currency} Amount *x`}</span>
+              </div>
               <input type="number" style={inputStyle} value={baseAmount || ""}
                 onChange={e => {
                   const val = e.target.value;
@@ -809,6 +827,18 @@ export default function DCASimulator() {
                   if (!baseAmount || baseAmount === "") setBaseAmount(100);
                 }}
                 inputMode="numeric" placeholder="1000" />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Currency</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {pillBtn(currency === "USD", () => setCurrency("USD"), "USD")}
+                {pillBtn(currency === "CAD", () => setCurrency("CAD"), "CAD")}
+              </div>
+              {currency === "CAD" && (
+                <div style={{ fontSize: 9, color: T.textDim, marginTop: 3 }}>
+                  Rate: 1 USD = {cadRate.toFixed(4)} CAD
+                </div>
+              )}
             </div>
             {tab !== "lump" && (
               <div>
@@ -945,7 +975,7 @@ export default function DCASimulator() {
                 <div style={{ alignSelf: "flex-end", paddingBottom: 2 }}>
                   <div style={{ fontSize: 10, color: T.textDim }}>Total Cost</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: T.accent, fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {fmt$((parseFloat(initShares) || 0) * (parseFloat(initAvgPrice) || 0))}
+                    {fmtC((parseFloat(initShares) || 0) * (parseFloat(initAvgPrice) || 0))}
                   </div>
                 </div>
               )}
@@ -1064,7 +1094,7 @@ export default function DCASimulator() {
                 <div>
                   <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Total Invested</div>
                   <div style={{ fontSize: 24, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {fmt$(stats.totalInvested)}
+                    {fmtC(stats.totalInvested)}
                   </div>
                   <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                     {tab === "dynamic"
@@ -1078,17 +1108,17 @@ export default function DCASimulator() {
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
                     {stats.totalAsset.toFixed(5)} <span style={{ fontSize: 12, color: T.textMid }}>{displayTicker}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: T.label, marginTop: 4 }}>Average: {fmt$(stats.avgPrice)}</div>
-                  <div style={{ fontSize: 10, color: T.label }}>Last: {fmt$(stats.lastPrice)}</div>
+                  <div style={{ fontSize: 10, color: T.label, marginTop: 4 }}>Average: {fmtC(stats.avgPrice)}</div>
+                  <div style={{ fontSize: 10, color: T.label }}>Last: {fmtC(stats.lastPrice)}</div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Current Portfolio Value</div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {fmt$(stats.currentPortfolio)}
+                    {fmtC(stats.currentPortfolio)}
                   </div>
                   <div style={{ fontSize: 11, marginTop: 4, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
-                    {stats.gain >= 0 ? "+" : ""}{fmt$(stats.gain)} ({stats.gainPct}%)
+                    {stats.gain >= 0 ? "+" : ""}{fmtC(stats.gain)} ({stats.gainPct}%)
                   </div>
                 </div>
 
@@ -1096,7 +1126,7 @@ export default function DCASimulator() {
                   <div>
                     <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Sell Proceeds</div>
                     <div style={{ fontSize: 16, fontWeight: 600, color: "#f59e0b", fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {fmt$(stats.totalSellProceeds)}
+                      {fmtC(stats.totalSellProceeds)}
                     </div>
                     <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                       {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
@@ -1104,7 +1134,7 @@ export default function DCASimulator() {
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Net P&amp;L (with sells)</div>
                       <div style={{ fontSize: 16, fontWeight: 600, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
-                        {stats.sellPnl >= 0 ? "+" : ""}{fmt$(stats.sellPnl)}
+                        {stats.sellPnl >= 0 ? "+" : ""}{fmtC(stats.sellPnl)}
                       </div>
                       <div style={{ fontSize: 11, marginTop: 2, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444" }}>
                         {stats.sellPnl >= 0 ? "+" : ""}{stats.sellPnlPct}% vs invested
@@ -1119,7 +1149,7 @@ export default function DCASimulator() {
                           <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #1a1a3a" }}>
                             <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>vs Holding (no sells)</div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: isAhead ? "#22c55e" : "#ef4444" }}>
-                              {isAhead ? "+" : ""}{fmt$(diff)}
+                              {isAhead ? "+" : ""}{fmtC(diff)}
                             </div>
                             <div style={{ fontSize: 10, color: isAhead ? "#22c55e" : "#ef4444" }}>
                               {isAhead ? "▲ Sell strategy helped" : "▼ Sell strategy hurt"}
@@ -1183,12 +1213,12 @@ export default function DCASimulator() {
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>
-                        <td style={{ padding: "5px 10px", color: T.text }}>{fmt$(row.price)}</td>
+                        <td style={{ padding: "5px 10px", color: T.text }}>{fmtC(row.price)}</td>
                         <td style={{ padding: "5px 10px", color: T.text }}>{row.accumulated?.toFixed(4)} {displayTicker}</td>
-                        <td style={{ padding: "5px 10px", color: T.textMid }}>{fmt$(row.invested ?? 0)}</td>
+                        <td style={{ padding: "5px 10px", color: T.textMid }}>{fmtC(row.invested ?? 0)}</td>
                         <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
-                          {fmt$(row.portfolioValue ?? 0)}
-                          {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmt$(row.sellProceeds)} cashed</span>}
+                          {fmtC(row.portfolioValue ?? 0)}
+                          {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}
                         </td>
                       </tr>
                     );

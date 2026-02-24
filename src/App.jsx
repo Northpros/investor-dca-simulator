@@ -217,7 +217,7 @@ export default function DCASimulator() {
 
           // If Binance didn't work, try Yahoo Finance
           if (raw.length === 0) {
-            const res = await fetch(`/api/yahoo/${ticker.toUpperCase()}`);
+            const res = await fetch(`/api/yahoo/${ticker.toUpperCase()}?_=${Date.now()}`);
             if (!res.ok) throw new Error(`Could not find data for "${ticker.toUpperCase()}" — check the ticker and try again`);
             const contentType = res.headers.get("content-type") ?? "";
             if (!contentType.includes("json")) throw new Error("Proxy returned non-JSON — check vercel.json is deployed");
@@ -273,7 +273,7 @@ export default function DCASimulator() {
             .map(([ts, price]) => ({ ts, date: new Date(ts), price }));
         } else {
           // Yahoo Finance via Vercel proxy rewrite (vercel.json) — no CORS issues
-          const res = await fetch(`/api/yahoo/${asset.ticker}`);
+          const res = await fetch(`/api/yahoo/${asset.ticker}?_=${Date.now()}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const contentType = res.headers.get("content-type") ?? "";
           if (!contentType.includes("json")) throw new Error("Proxy returned non-JSON — check vercel.json is deployed");
@@ -302,7 +302,7 @@ export default function DCASimulator() {
         } else {
           // Try to get name from Yahoo quote endpoint
           try {
-            const qRes = await fetch(`/api/yahoo/${t}`);
+            const qRes = await fetch(`/api/yahoo/${t}?_=${Date.now()}`);
             if (qRes.ok) {
               const qJson = await qRes.json();
               const name = qJson.chart?.result?.[0]?.meta?.longName

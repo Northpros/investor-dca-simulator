@@ -98,6 +98,7 @@ const KNOWN_NAMES = {
   };
 export default function DCASimulator() {
   const [tab, setTab] = useState("dynamic");
+  const [darkMode, setDarkMode] = useState(true);
   const [baseAmount, setBaseAmount] = useState(1000);
   // ── Asset catalogue ───────────────────────────────────────────────────────
   const ASSETS = [
@@ -342,12 +343,10 @@ export default function DCASimulator() {
     if (startDate < earliest) setStartDate(earliest);
   }, [assetId, customTicker, dailyData]);
 
-  // Auto-adjust risk defaults based on asset type
-  // Crypto: band 0.4-0.499 (idx 4), offset -0.02
-  // Stocks/ETFs: band 0.5-0.599 (idx 5), offset -0.05
+  // Auto-adjust risk defaults + reset sell/init on asset change
   useEffect(() => {
     const isCrypto = customTicker
-      ? false  // unknown tickers default to stock settings
+      ? false
       : (asset.type === "binance" || asset.type === "crypto");
     if (isCrypto) {
       setRiskBandIdx(4);
@@ -356,6 +355,11 @@ export default function DCASimulator() {
       setRiskBandIdx(5);
       setRiskOffset(-0.05);
     }
+    // Reset sell strategy and initial position
+    setSellEnabled(false);
+    setInitEnabled(false);
+    setInitShares("");
+    setInitAvgPrice("");
   }, [assetId, customTicker]);
 
   // When switching to lump sum, extend end date to today so full growth is shown
@@ -625,23 +629,49 @@ export default function DCASimulator() {
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
+  const T = darkMode ? {
+    bg:        "#07071a",
+    card:      "#0d0d1f",
+    border:    "#1a1a3a",
+    border2:   "#2a2a4a",
+    inputBg:   "#1a1a2e",
+    text:      "#e0e0ff",
+    textMid:   "#888",
+    textDim:   "#555",
+    textFaint: "#333",
+    accent:    "#6C8EFF",
+    label:     "#666",
+  } : {
+    bg:        "#f0f2f8",
+    card:      "#ffffff",
+    border:    "#d0d4e8",
+    border2:   "#c0c8e0",
+    inputBg:   "#f8f9ff",
+    text:      "#1a1a3a",
+    textMid:   "#445",
+    textDim:   "#667",
+    textFaint: "#aaa",
+    accent:    "#4a6ef5",
+    label:     "#778",
+  };
+
   const inputStyle = {
-    background: "#1a1a2e", border: "1px solid #2a2a4a", borderRadius: 6,
-    color: "#e0e0ff", padding: "7px 10px", fontSize: 13, height: 36,
+    background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
+    color: T.text, padding: "7px 10px", fontSize: 13, height: 36,
     fontFamily: "'DM Mono', monospace", outline: "none", boxSizing: "border-box",
   };
   const tabStyle = (t) => ({
     padding: "8px 18px", border: "none",
-    borderBottom: tab === t ? "2px solid #6C8EFF" : "2px solid transparent",
-    color: tab === t ? "#6C8EFF" : "#888",
+    borderBottom: tab === t ? `2px solid ${T.accent}` : "2px solid transparent",
+    color: tab === t ? T.accent : T.textMid,
     cursor: "pointer", fontSize: 13, fontFamily: "'DM Mono', monospace",
     background: "transparent", transition: "all 0.2s",
   });
   const pillBtn = (active, onClick, label) => (
     <button onClick={onClick} style={{
-      padding: "5px 14px", borderRadius: 4, border: "1px solid #2a2a4a",
-      background: active ? "#6C8EFF" : "#1a1a2e",
-      color: active ? "#fff" : "#888",
+      padding: "5px 14px", borderRadius: 4, border: `1px solid ${T.border2}`,
+      background: active ? T.accent : T.inputBg,
+      color: active ? "#fff" : T.textMid,
       cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace",
     }}>{label}</button>
   );
@@ -649,10 +679,10 @@ export default function DCASimulator() {
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
-      <div style={{ background: "#0d0d1f", border: "1px solid #2a2a4a", borderRadius: 8, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
-        <div style={{ color: "#888", marginBottom: 4 }}>{label}</div>
+      <div style={{ background: T.card, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+        <div style={{ color: T.textMid, marginBottom: 4 }}>{label}</div>
         {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color || "#e0e0ff" }}>
+          <div key={i} style={{ color: p.color || T.text }}>
             {p.name}: {p.name === "Risk" ? p.value?.toFixed(3) : fmt$(p.value)}
           </div>
         ))}
@@ -661,7 +691,7 @@ export default function DCASimulator() {
   };
 
   return (
-    <div style={{ background: "#07071a", minHeight: "100vh", color: "#e0e0ff", fontFamily: "'DM Mono', monospace", padding: "24px 28px" }}>
+    <div style={{ background: T.bg, minHeight: "100vh", color: T.text, fontFamily: "'DM Mono', monospace", padding: "24px 28px" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;600;700&display=swap');
         * { box-sizing: border-box; }
@@ -674,44 +704,51 @@ export default function DCASimulator() {
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: "#fff", letterSpacing: -0.5 }}>
-            Investor DCA Simulation
-          </h1>
-          <p style={{ color: "#666", fontSize: 12, margin: "6px 0 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: darkMode ? "#fff" : T.text, letterSpacing: -0.5 }}>
+              Investor DCA Simulation
+            </h1>
+            <button onClick={() => setDarkMode(m => !m)} style={{
+              background: T.inputBg, border: `1px solid ${T.border2}`,
+              borderRadius: 20, padding: "4px 12px", cursor: "pointer",
+              fontSize: 13, color: T.textMid, fontFamily: "'DM Mono', monospace",
+            }}>{darkMode ? "☀ Day" : "🌙 Night"}</button>
+          </div>
+          <p style={{ color: T.label, fontSize: 12, margin: "6px 0 0" }}>
             Enter your DCA amount and parameters to simulate different accumulation strategies based on your risk tolerance.
           </p>
         </div>
         <div style={{ textAlign: "right", fontSize: 11 }}>
-          {loading && <span style={{ color: "#6C8EFF" }}>{`⟳ Fetching live ${displayLabel} price history...`}</span>}
+          {loading && <span style={{ color: T.accent }}>{`⟳ Fetching live ${displayLabel} price history...`}</span>}
           {!loading && error && <span style={{ color: "#f59e0b" }}>⚠ {error}</span>}
           {!loading && !error && lastUpdated && (
             <span style={{ color: "#22c55e" }}>✓ Live data · {lastUpdated.toLocaleTimeString()}</span>
           )}
-          {!loading && <div style={{ color: "#333", fontSize: 10, marginTop: 2 }}>{dailyData.length.toLocaleString()} daily data points</div>}
+          {!loading && <div style={{ color: T.textFaint, fontSize: 10, marginTop: 2 }}>{dailyData.length.toLocaleString()} daily data points</div>}
         </div>
       </div>
 
       {/* Card */}
-      <div style={{ background: "#0d0d1f", border: "1px solid #1a1a3a", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
 
         {/* Tabs */}
-        <div style={{ borderBottom: "1px solid #1a1a3a", display: "flex", padding: "0 16px" }}>
+        <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
           <button style={tabStyle("equal")} onClick={() => setTab("equal")}>DCA Equal Amount</button>
           <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump Sum</button>
-          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Dynamic DCA In</button>
+          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision DCA</button>
         </div>
 
         {/* Company Name Banner */}
         <div style={{ padding: "10px 20px 0", borderBottom: "none" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: "#6C8EFF", letterSpacing: -0.5 }}>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: T.accent, letterSpacing: -0.5 }}>
               {displayTicker}
             </span>
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 400, color: "#888" }}>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 400, color: T.textMid }}>
               {companyName}
             </span>
             {stats && (
-              <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#e0e0ff" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: T.text }}>
                 {fmt$(stats.lastPrice)}
                 <span style={{ fontSize: 11, marginLeft: 6, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
                   {stats.gain >= 0 ? "▲" : "▼"} {Math.abs(stats.gainPct)}%
@@ -722,10 +759,10 @@ export default function DCASimulator() {
         </div>
 
         {/* Controls */}
-        <div style={{ padding: "12px 20px 16px", borderBottom: "1px solid #1a1a3a" }}>
+        <div style={{ padding: "12px 20px 16px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start", rowGap: 10 }}>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Asset Ticker</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Asset Ticker</div>
               <div style={{ display: "flex", gap: 4 }}>
                 <input
                   type="text"
@@ -752,12 +789,12 @@ export default function DCASimulator() {
                     if (known) { setAssetId(t); setCustomTicker(null); }
                     else setCustomTicker(t);
                   }}
-                  style={{ ...inputStyle, cursor: "pointer", padding: "0 12px", background: "#1a1a3a", color: "#6C8EFF", border: "1px solid #6C8EFF", flexShrink: 0 }}
+                  style={{ ...inputStyle, cursor: "pointer", padding: "0 12px", background: T.border, color: T.accent, border: "1px solid #6C8EFF", flexShrink: 0 }}
                 >Go</button>
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>{tab === "lump" ? "USD Amount" : "USD Amount *x"}</div>
               <input type="number" style={inputStyle} value={baseAmount || ""}
                 onChange={e => {
                   const val = e.target.value;
@@ -773,7 +810,7 @@ export default function DCASimulator() {
             </div>
             {tab !== "lump" && (
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Repeat Purchase</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Repeat Purchase</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={frequency} onChange={e => setFrequency(e.target.value)}>
                   <option>Daily</option><option>Weekly</option><option>Monthly</option>
                 </select>
@@ -781,21 +818,21 @@ export default function DCASimulator() {
             )}
             {tab !== "lump" && frequency === "Monthly" && (
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Day of month</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Day of month</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={dayOfMonth} onChange={e => setDayOfMonth(Number(e.target.value))}>
                   {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d}>{d}</option>)}
                 </select>
               </div>
             )}
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>{tab === "lump" ? "Purchase Date" : "Starting Date"}</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>{tab === "lump" ? "Purchase Date" : "Starting Date"}</div>
               <input type="date" style={inputStyle} value={startDate}
                 min={minDate} max={endDate}
                 onChange={e => setStartDate(e.target.value)} />
             </div>
             {tab !== "lump" && (
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Ending Date</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Ending Date</div>
                 <input type="date" style={inputStyle} value={endDate}
                   min={startDate} max={maxDate}
                   onChange={e => setEndDate(e.target.value)} />
@@ -806,37 +843,37 @@ export default function DCASimulator() {
           {tab === "dynamic" && (
             <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Accumulate up to risk...</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Accumulate up to risk...</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={riskBandIdx} onChange={e => setRiskBandIdx(Number(e.target.value))}>
                   {RISK_BANDS.map((b, i) => <option key={i} value={i}>{b.label}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Buying strategy</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Buying strategy</div>
                 <div style={{ display: "flex", gap: 4 }}>
                   {pillBtn(strategy === "Linear", () => setStrategy("Linear"), "Linear")}
                   {pillBtn(strategy === "Exponential", () => setStrategy("Exponential"), "Exponential")}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Scale</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Scale</div>
                 <div style={{ display: "flex", gap: 4 }}>
                   {pillBtn(scaleY === "Lin", () => setScaleY("Lin"), "Lin")}
                   {pillBtn(scaleY === "Log", () => setScaleY("Log"), "Log")}
                 </div>
               </div>
               {strategy === "Exponential" && (
-                <div style={{ fontSize: 11, color: "#555", alignSelf: "flex-end", paddingBottom: 2 }}>
+                <div style={{ fontSize: 11, color: T.textDim, alignSelf: "flex-end", paddingBottom: 2 }}>
                   Exponentially increasing amounts: x, 2x, 4x, 8x...
                 </div>
               )}
               {strategy === "Linear" && (
-                <div style={{ fontSize: 11, color: "#555", alignSelf: "flex-end", paddingBottom: 2 }}>
+                <div style={{ fontSize: 11, color: T.textDim, alignSelf: "flex-end", paddingBottom: 2 }}>
                   {`$${baseAmount.toLocaleString()} × 1x, 2x, 3x... stepping up every 0.1 below ${riskBand.label}`}
                 </div>
               )}
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>
                   Risk offset <span style={{ color: "#aabbff" }}>{riskOffset >= 0 ? "+" : ""}{riskOffset.toFixed(2)}</span>
                 </div>
                 <input
@@ -852,7 +889,7 @@ export default function DCASimulator() {
           {/* Sell Strategy — always visible */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Sell Strategy</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Sell Strategy</div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
                 {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
@@ -875,9 +912,9 @@ export default function DCASimulator() {
           </div>
 
           {/* Initial Investment */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid #1a1a3a" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
-              <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Initial Position</div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Initial Position</div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!initEnabled, () => setInitEnabled(false), "Off")}
                 {pillBtn(initEnabled, () => setInitEnabled(true), "On")}
@@ -885,27 +922,27 @@ export default function DCASimulator() {
             </div>
             {initEnabled && (<>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Purchase Date</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Purchase Date</div>
                 <input type="date" style={inputStyle} value={initDate}
                   min={minDate} max={maxDate}
                   onChange={e => setInitDate(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Shares / Units</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Shares / Units</div>
                 <input type="number" style={{ ...inputStyle, width: 110 }}
                   value={initShares} onChange={e => setInitShares(e.target.value)}
                   placeholder="e.g. 10" inputMode="numeric" />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 4 }}>Avg Price Paid</div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Avg Price Paid</div>
                 <input type="number" style={{ ...inputStyle, width: 120 }}
                   value={initAvgPrice} onChange={e => setInitAvgPrice(e.target.value)}
                   placeholder="e.g. 45000" inputMode="numeric" />
               </div>
               {initShares && initAvgPrice && (
                 <div style={{ alignSelf: "flex-end", paddingBottom: 2 }}>
-                  <div style={{ fontSize: 10, color: "#555" }}>Total Cost</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#6C8EFF", fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <div style={{ fontSize: 10, color: T.textDim }}>Total Cost</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.accent, fontFamily: "'Space Grotesk', sans-serif" }}>
                     {fmt$((parseFloat(initShares) || 0) * (parseFloat(initAvgPrice) || 0))}
                   </div>
                 </div>
@@ -916,7 +953,7 @@ export default function DCASimulator() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ padding: 60, textAlign: "center", color: "#6C8EFF", fontSize: 13 }}>
+          <div style={{ padding: 60, textAlign: "center", color: T.accent, fontSize: 13 }}>
             {`⟳ Fetching live ${displayLabel} price history...`}
           </div>
         )}
@@ -928,7 +965,7 @@ export default function DCASimulator() {
 
               {/* Portfolio Chart */}
               <div style={{ marginBottom: 32 }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: "#c0c0e0", fontFamily: "'Space Grotesk', sans-serif" }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
                   {`${displayTicker} — Simulated Portfolio Value Over Time`}
                 </h3>
                 <ResponsiveContainer width="100%" height={260}>
@@ -949,7 +986,7 @@ export default function DCASimulator() {
                       width={55}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: T.textMid }} />
                     <Area type="monotone" dataKey="portfolio" name="Portfolio" stroke="#6C8EFF" fill="url(#portfolioGrad)" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="invested" name="Invested" stroke="#888" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
                     {tab !== "lump" && (
@@ -961,7 +998,7 @@ export default function DCASimulator() {
 
               {/* Risk / Strategy Chart */}
               <div>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: "#c0c0e0", fontFamily: "'Space Grotesk', sans-serif" }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
                   {tab === "dynamic" ? "Simulated Strategy Over Time" : "Risk Metric Over Time"}
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
@@ -1023,11 +1060,11 @@ export default function DCASimulator() {
             {stats && (
               <div style={{ width: 210, borderLeft: "1px solid #1a1a3a", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24 }}>
                 <div>
-                  <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Total Invested</div>
+                  <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Total Invested</div>
                   <div style={{ fontSize: 24, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
                     {fmt$(stats.totalInvested)}
                   </div>
-                  <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                     {tab === "dynamic"
                       ? `Buying ${stats.buyCount} of ${stats.totalMonths} months`
                       : `Over ${stats.totalMonths} months`}
@@ -1035,16 +1072,16 @@ export default function DCASimulator() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Accumulated Asset</div>
+                  <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Accumulated Asset</div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {stats.totalAsset.toFixed(5)} <span style={{ fontSize: 12, color: "#888" }}>{displayTicker}</span>
+                    {stats.totalAsset.toFixed(5)} <span style={{ fontSize: 12, color: T.textMid }}>{displayTicker}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>Average: {fmt$(stats.avgPrice)}</div>
-                  <div style={{ fontSize: 10, color: "#666" }}>Last: {fmt$(stats.lastPrice)}</div>
+                  <div style={{ fontSize: 10, color: T.label, marginTop: 4 }}>Average: {fmt$(stats.avgPrice)}</div>
+                  <div style={{ fontSize: 10, color: T.label }}>Last: {fmt$(stats.lastPrice)}</div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Current Portfolio Value</div>
+                  <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Current Portfolio Value</div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
                     {fmt$(stats.currentPortfolio)}
                   </div>
@@ -1055,22 +1092,22 @@ export default function DCASimulator() {
 
                 {sellEnabled && stats.totalSellProceeds > 0 && (
                   <div>
-                    <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Sell Proceeds</div>
+                    <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Sell Proceeds</div>
                     <div style={{ fontSize: 16, fontWeight: 600, color: "#f59e0b", fontFamily: "'Space Grotesk', sans-serif" }}>
                       {fmt$(stats.totalSellProceeds)}
                     </div>
-                    <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                    <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                       {stats.sellCount} sell event{stats.sellCount !== 1 ? "s" : ""}
                     </div>
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1a1a3a" }}>
-                      <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Net P&amp;L (with sells)</div>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Net P&amp;L (with sells)</div>
                       <div style={{ fontSize: 16, fontWeight: 600, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
                         {stats.sellPnl >= 0 ? "+" : ""}{fmt$(stats.sellPnl)}
                       </div>
                       <div style={{ fontSize: 11, marginTop: 2, color: stats.sellPnl >= 0 ? "#22c55e" : "#ef4444" }}>
                         {stats.sellPnl >= 0 ? "+" : ""}{stats.sellPnlPct}% vs invested
                       </div>
-                      <div style={{ fontSize: 10, color: "#555", marginTop: 6 }}>
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 6 }}>
                         Portfolio + Proceeds − Invested
                       </div>
                       {(() => {
@@ -1078,7 +1115,7 @@ export default function DCASimulator() {
                         const isAhead = diff >= 0;
                         return (
                           <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #1a1a3a" }}>
-                            <div style={{ fontSize: 10, color: "#555", marginBottom: 2 }}>vs Holding (no sells)</div>
+                            <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>vs Holding (no sells)</div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: isAhead ? "#22c55e" : "#ef4444" }}>
                               {isAhead ? "+" : ""}{fmt$(diff)}
                             </div>
@@ -1093,7 +1130,7 @@ export default function DCASimulator() {
                 )}
 
                 <div style={{ marginTop: "auto" }}>
-                  <div style={{ fontSize: 10, color: "#555", marginBottom: 8 }}>Risk Scale</div>
+                  <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>Risk Scale</div>
                   {[
                     { label: "0.9 – 1.0", color: "#dc2626" },
                     { label: "0.7 – 0.9", color: "#ea580c" },
@@ -1104,7 +1141,7 @@ export default function DCASimulator() {
                   ].map(r => (
                     <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, marginBottom: 3 }}>
                       <div style={{ width: 10, height: 10, borderRadius: 2, background: r.color, flexShrink: 0 }} />
-                      <span style={{ color: "#666" }}>{r.label}</span>
+                      <span style={{ color: T.label }}>{r.label}</span>
                     </div>
                   ))}
                 </div>
@@ -1115,19 +1152,19 @@ export default function DCASimulator() {
 
         {/* Trade History Table */}
         {tradeLog && tradeLog.length > 0 && (
-          <div style={{ borderTop: "1px solid #1a1a3a", padding: "20px" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 500, color: "#c0c0e0", fontFamily: "'Space Grotesk', sans-serif" }}>
+          <div style={{ borderTop: `1px solid ${T.border}`, padding: "20px" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
               Simulated Trade History
             </h3>
-            <p style={{ margin: "0 0 14px", fontSize: 11, color: "#555" }}>
+            <p style={{ margin: "0 0 14px", fontSize: 11, color: T.textDim }}>
               {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()} on the ${dayOfMonth} — from ${startDate} to ${endDate}`}
             </p>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #1a1a3a" }}>
+                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                     {["Date","Action","Risk","Asset Price","Accumulated","Invested Amount","Portfolio Value"].map(h => (
-                      <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: "#555", fontWeight: 400, whiteSpace: "nowrap" }}>{h}</th>
+                      <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: T.textDim, fontWeight: 400, whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1139,14 +1176,14 @@ export default function DCASimulator() {
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: i % 2 === 0 ? "transparent" : "#0a0a1a" }}>
-                        <td style={{ padding: "5px 10px", color: "#888", whiteSpace: "nowrap" }}>{row.date}</td>
+                        <td style={{ padding: "5px 10px", color: T.textMid, whiteSpace: "nowrap" }}>{row.date}</td>
                         <td style={{ padding: "5px 10px", color: isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? "#6C8EFF" : "#555", fontWeight: (isBuy || isSell || isInit) ? 500 : 400 }}>{row.action}</td>
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
                         </td>
-                        <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{fmt$(row.price)}</td>
-                        <td style={{ padding: "5px 10px", color: "#c0c0e0" }}>{row.accumulated?.toFixed(4)} {displayTicker}</td>
-                        <td style={{ padding: "5px 10px", color: "#888" }}>{fmt$(row.invested ?? 0)}</td>
+                        <td style={{ padding: "5px 10px", color: T.text }}>{fmt$(row.price)}</td>
+                        <td style={{ padding: "5px 10px", color: T.text }}>{row.accumulated?.toFixed(4)} {displayTicker}</td>
+                        <td style={{ padding: "5px 10px", color: T.textMid }}>{fmt$(row.invested ?? 0)}</td>
                         <td style={{ padding: "5px 10px", color: isSell ? "#f59e0b" : isBuy ? "#22c55e" : "#888", fontWeight: (isBuy || isSell) ? 500 : 400 }}>
                           {fmt$(row.portfolioValue ?? 0)}
                           {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmt$(row.sellProceeds)} cashed</span>}
@@ -1163,7 +1200,7 @@ export default function DCASimulator() {
 
       </div>
 
-      <p style={{ fontSize: 10, color: "#2a2a4a", marginTop: 12, textAlign: "center" }}>
+      <p style={{ fontSize: 10, color: T.border2, marginTop: 12, textAlign: "center" }}>
         {`${asset.type === "crypto" ? "Data: Binance API" : "Data: Yahoo Finance (via corsproxy.io)"} · Risk: 500-day geometric MA model · Not financial advice`}
       </p>
     </div>

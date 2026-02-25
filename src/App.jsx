@@ -175,9 +175,9 @@ export default function DCASimulator() {
   const [sell90, setSell90] = useState(true);
   const [leapEnabled, setLeapEnabled] = useState(false);
   const [ccEnabled, setCcEnabled] = useState(false);
-  const [ccPremiumPct, setCcPremiumPct] = useState(0.5); // 0.5% of share value per month
+  const [ccPremiumPct, setCcPremiumPct] = useState(0.40); // 0.40% of share value per month
   const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
-  const [leapCostPct, setLeapCostPct] = useState(0.35);  // LEAP costs 35% of stock price
+  const [leapCostPct, setLeapCostPct] = useState(0.40);  // LEAP costs 40% of stock price
   const [leapDelta, setLeapDelta] = useState(0.75);       // 0.75 delta
 
   const [dailyData, setDailyData] = useState([]);
@@ -250,6 +250,24 @@ export default function DCASimulator() {
             if (!timestamps || !closes) throw new Error("Unexpected data format");
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
+
+            // Fetch live current price from dedicated quote endpoint
+            try {
+              const quoteRes = await fetch(`/api/quote/${ticker.toUpperCase()}?_=${Date.now()}`);
+              if (quoteRes.ok) {
+                const quoteJson = await quoteRes.json();
+                const livePrice = quoteJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+                if (livePrice && isFinite(livePrice) && livePrice > 0) {
+                  const todayTs = new Date().setHours(0, 0, 0, 0);
+                  const lastTs = raw[raw.length - 1]?.ts ?? 0;
+                  if (todayTs > lastTs) {
+                    raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+                  } else {
+                    raw[raw.length - 1].price = livePrice;
+                  }
+                }
+              }
+            } catch(e) { /* silently keep historical data */ }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -311,6 +329,24 @@ export default function DCASimulator() {
             price: closes[i],
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
+
+          // Fetch live current price from dedicated quote endpoint (interval=1m&range=1d)
+          try {
+            const quoteRes = await fetch(`/api/quote/${asset.ticker}?_=${Date.now()}`);
+            if (quoteRes.ok) {
+              const quoteJson = await quoteRes.json();
+              const livePrice = quoteJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+              if (livePrice && isFinite(livePrice) && livePrice > 0) {
+                const todayTs = new Date().setHours(0, 0, 0, 0);
+                const lastTs = raw[raw.length - 1]?.ts ?? 0;
+                if (todayTs > lastTs) {
+                  raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+                } else {
+                  raw[raw.length - 1].price = livePrice;
+                }
+              }
+            }
+          } catch(e) { /* silently keep historical data */ }
         }
 
         const parsed = addMovingAverage(raw);
@@ -657,10 +693,13 @@ export default function DCASimulator() {
       // Covered call — only triggers on scheduled buy days, same as everything else
       let ccIncome = 0;
       let ccShares = 0;
+      let ccContracts = 0;
       if (ccEnabled && isBuyDay && d.risk >= 0.90 && totalAsset > 0 && !isLastDay) {
-        // Use half the position (simulation — no 100-share lot constraint)
-        ccShares = totalAsset / 2;
-        if (ccShares > 0) {
+        // Use at most half the position, rounded down to nearest 100-share contract lot
+        const halfShares = totalAsset / 2;
+        ccContracts = Math.floor(halfShares / 100);
+        ccShares = ccContracts * 100;
+        if (ccContracts >= 1) {
           ccIncome = ccShares * d.price * (ccPremiumPct / 100);
           totalCcIncome += ccIncome;
           ccCount++;
@@ -692,6 +731,7 @@ export default function DCASimulator() {
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
           ccIncome: ccIncome > 0 ? ccIncome : null,
           ccShares: ccIncome > 0 ? ccShares : null,
+          ccContracts: ccIncome > 0 ? ccContracts : null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
           leapContracts: isLeapDay ? (leapPositions[leapPositions.length - 1]?.contracts ?? null) : null,
@@ -702,7 +742,7 @@ export default function DCASimulator() {
       if (purchase > 0) totalAssetNoSell += purchase / d.price; // always accumulate for comparison
 
       // Update tradeLog entry with running totals (after purchase)
-      if (tradeLog.length > 0 && (isBuyDay || isLastDay)) {
+      if (tradeLog.length > 0 && (isBuyDay || isLastDay || isCcDay)) {
         const last = tradeLog[tradeLog.length - 1];
         last.accumulated = totalAsset;
         last.invested = totalInvested;
@@ -870,13 +910,22 @@ export default function DCASimulator() {
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div>
-            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: darkMode ? "#fff" : T.text, letterSpacing: -0.5 }}>
-              Investor DCA Simulation
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.8,
+              background: "linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+            }}>
+              Reversion Alpha
             </h1>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 800, letterSpacing: -0.8, color: darkMode ? "#fff" : T.text }}>
+              DCA Pro
+            </span>
           </div>
-          <p style={{ color: T.label, fontSize: 12, margin: "6px 0 0" }}>
-            Enter your DCA amount and parameters to simulate different accumulation strategies based on your risk tolerance.
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, margin: "6px 0 0", letterSpacing: 0.3, color: darkMode ? "#94a3b8" : T.label, fontStyle: "italic" }}>
+            Simulate, Optimize, and Execute Quantitative DCA Strategies.
+          </p>
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, margin: "6px 0 0", letterSpacing: 0.2, color: darkMode ? "#64748b" : T.textDim }}>
+            Input Asset Ticker, DCA amount and parameters to simulate different accumulation and distribution strategies.
           </p>
         </div>
         <div style={{ textAlign: "right", fontSize: 11, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -900,9 +949,9 @@ export default function DCASimulator() {
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
-          <button style={tabStyle("equal")} onClick={() => setTab("equal")}>DCA Equal Amount</button>
-          <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump Sum</button>
-          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision DCA</button>
+          <button style={tabStyle("equal")} onClick={() => setTab("equal")}>Equal $ DCA</button>
+          <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump $um</button>
+          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision Entry DCA</button>
         </div>
 
         {/* Company Name Banner */}
@@ -1599,7 +1648,7 @@ export default function DCASimulator() {
                               </>)
                             : isCcRow
                             ? (<>
-                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(4)} units (half position)` : ""}</span>
+                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccContracts ? `${row.ccContracts} contract${row.ccContracts !== 1 ? "s" : ""} (${row.ccShares} shares)` : ""}</span>
                                 <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
                               </>)
                             : (<>

@@ -175,6 +175,8 @@ export default function DCASimulator() {
   const [sell80, setSell80] = useState(true);
   const [sell90, setSell90] = useState(true);
   const [leapEnabled, setLeapEnabled] = useState(false);
+  const [ccEnabled, setCcEnabled] = useState(false);
+  const [ccPremiumPct, setCcPremiumPct] = useState(0.5); // 0.5% of share value per month
   const [leap10, setLeap10] = useState(true);   // 0.1 – 0.199 risk zone
   const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
   const [leapCostPct, setLeapCostPct] = useState(0.35);  // LEAP costs 35% of stock price
@@ -377,6 +379,7 @@ export default function DCASimulator() {
     setInitShares("");
     setInitAvgPrice("");
     setLeapEnabled(false);
+    setCcEnabled(false);
   }, [assetId, customTicker]);
 
   // When switching to lump sum, extend end date to today so full growth is shown
@@ -487,6 +490,7 @@ export default function DCASimulator() {
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0, totalSellAsset = 0, totalSellCostBasis = 0;
     let leapCount = 0, totalLeapInvested = 0;
+    let ccCount = 0, totalCcIncome = 0;
     const leapPositions = []; // { entryPrice, notionalShares, cost, delta }
     const tradeLog = [];
     const chartData = [];
@@ -606,7 +610,9 @@ export default function DCASimulator() {
       if (isBuyDay || isSellDay || isLastDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
         let action = "None";
-        if (isSellDay) {
+        if (isCcDay && !isSellDay) {
+          action = `Covered Call`;
+        } else if (isSellDay) {
           action = `Sell ${(sellPct * 100).toFixed(0)}%`;
         } else if (isLeapDay) {
           action = `LEAP 0.${Math.round(leapDelta*100)}Δ`;
@@ -623,6 +629,7 @@ export default function DCASimulator() {
           price: d.price,
           purchaseAmt: isLeapDay ? leapCost : purchase,
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
+          ccIncome: ccIncome > 0 ? ccIncome : null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
         });
@@ -675,6 +682,7 @@ export default function DCASimulator() {
         lastPrice, currentPortfolio, gain, gainPct,
         totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds, totalSellAsset, totalSellCostBasis,
         leapCount, totalLeapInvested,
+        ccCount, totalCcIncome,
         leapPortfolioValue: leapPositions.reduce((sum, lp) => {
           const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
           const deltaGain = lp.delta * (lastPx - lp.entryPrice) * lp.notionalShares;
@@ -696,7 +704,7 @@ export default function DCASimulator() {
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leap10, leapCostPct, leapDelta]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leap10, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -1049,6 +1057,33 @@ export default function DCASimulator() {
             </>)}
           </div>
 
+          {/* Covered Call */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+            <div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Covered Call</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {pillBtn(!ccEnabled, () => setCcEnabled(false), "Off")}
+                {pillBtn(ccEnabled, () => setCcEnabled(true), "On")}
+              </div>
+            </div>
+            {ccEnabled && (<>
+              <div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>
+                  Monthly Premium <span style={{ color: "#06b6d4" }}>{ccPremiumPct.toFixed(2)}% of value</span>
+                </div>
+                <input type="range" min="0.10" max="2.00" step="0.05"
+                  value={ccPremiumPct}
+                  onChange={e => setCcPremiumPct(parseFloat(e.target.value))}
+                  style={{ width: 120, accentColor: "#06b6d4", cursor: "pointer" }} />
+              </div>
+              <div style={{ alignSelf: "flex-end", fontSize: 10, color: T.textDim, paddingBottom: 2, lineHeight: 1.7 }}>
+                Triggers at risk &gt; 0.90<br/>
+                ~0.10 delta · 30 days out<br/>
+                <span style={{ color: "#06b6d4" }}>Est. {ccPremiumPct.toFixed(2)}%/mo on holdings</span>
+              </div>
+            </>)}
+          </div>
+
           {/* Initial Investment */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
@@ -1254,6 +1289,21 @@ export default function DCASimulator() {
                   )}
                 </div>
 
+                {ccEnabled && stats.ccCount > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>Covered Call Income</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#06b6d4", fontFamily: "'Space Grotesk', sans-serif" }}>
+                      {fmtC(stats.totalCcIncome)}
+                    </div>
+                    <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
+                      {stats.ccCount} call{stats.ccCount !== 1 ? "s" : ""} written at risk &gt; 0.90
+                    </div>
+                    <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>
+                      Avg premium: {fmtC(stats.totalCcIncome / stats.ccCount)}
+                    </div>
+                  </div>
+                )}
+
                 {leapEnabled && stats.leapCount > 0 && (
                   <div>
                     <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>LEAP Summary</div>
@@ -1337,6 +1387,7 @@ export default function DCASimulator() {
                     true,
                     sellEnabled && stats.totalSellProceeds > 0,
                     leapEnabled && stats.leapCount > 0,
+                    ccEnabled && stats.ccCount > 0,
                   ].filter(Boolean).length;
 
                   if (activeFeatures < 2) return null;
@@ -1344,7 +1395,8 @@ export default function DCASimulator() {
                   const shareValue   = stats.currentPortfolio;
                   const sellProceeds = (sellEnabled && stats.totalSellProceeds > 0) ? stats.totalSellProceeds : 0;
                   const leapValue    = (leapEnabled && stats.leapCount > 0) ? Math.max(0, stats.leapPortfolioValue) : 0;
-                  const totalValue   = shareValue + sellProceeds + leapValue;
+                  const ccIncomeTot  = (ccEnabled && stats.ccCount > 0) ? stats.totalCcIncome : 0;
+                  const totalValue   = shareValue + sellProceeds + leapValue + ccIncomeTot;
                   const totalGain    = totalValue - stats.totalInvested;
                   const totalPct     = stats.totalInvested > 0 ? ((totalValue / stats.totalInvested - 1) * 100).toFixed(2) : 0;
                   const isPos        = totalGain >= 0;
@@ -1370,6 +1422,12 @@ export default function DCASimulator() {
                         <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
                           + LEAP value:
                           <span style={{ color: "#a78bfa", float: "right" }}>{fmtC(leapValue)}</span>
+                        </div>
+                      )}
+                      {ccEnabled && ccIncomeTot > 0 && (
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
+                          + CC income:
+                          <span style={{ color: "#06b6d4", float: "right" }}>{fmtC(ccIncomeTot)}</span>
                         </div>
                       )}
 
@@ -1425,6 +1483,7 @@ export default function DCASimulator() {
                     const isSell = row.action.startsWith("Sell");
                     const isInit = row.action === "Initial Position";
                     const isLeapRow = row.action?.startsWith("LEAP");
+                    const isCcRow = row.action === "Covered Call";
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: "transparent" }}>

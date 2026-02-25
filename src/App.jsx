@@ -251,9 +251,9 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Bypass Vercel cache — fetch live price direct via corsproxy.io
+            // Bypass Vercel cache — fetch live price direct via allorigins.win
             try {
-              const liveUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1m&range=1d`)}`;
+              const liveUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1m&range=1d`)}`;
               const liveRes = await fetch(liveUrl);
               if (liveRes.ok) {
                 const liveJson = await liveRes.json();
@@ -331,9 +331,9 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Bypass Vercel cache entirely — fetch live price direct via corsproxy.io
+          // Bypass Vercel cache — fetch live price direct via allorigins.win
           try {
-            const liveUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1m&range=1d`)}`;
+            const liveUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1m&range=1d`)}`;
             const liveRes = await fetch(liveUrl);
             if (liveRes.ok) {
               const liveJson = await liveRes.json();
@@ -711,10 +711,10 @@ export default function DCASimulator() {
       if (isBuyDay || isSellDay || isLastDay || isCcDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
         let action = "None";
-        if (isCcDay && !isSellDay) {
-          action = `Covered Call`;
-        } else if (isSellDay) {
+        if (isSellDay) {
           action = `Sell ${(sellPct * 100).toFixed(0)}%`;
+        } else if (isCcDay) {
+          action = `Covered Call`;
         } else if (isLeapDay) {
           action = `LEAP 0.${Math.round(leapDelta*100)}Δ`;
         } else if (!isLastDay && purchase > 0) {
@@ -730,13 +730,36 @@ export default function DCASimulator() {
           price: d.price,
           purchaseAmt: isLeapDay ? leapCost : purchase,
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
-          ccIncome: ccIncome > 0 ? ccIncome : null,
-          ccShares: ccIncome > 0 ? ccShares : null,
-          ccContracts: ccIncome > 0 ? ccContracts : null,
+          ccIncome: null,
+          ccShares: null,
+          ccContracts: null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
           leapContracts: isLeapDay ? (leapPositions[leapPositions.length - 1]?.contracts ?? null) : null,
         });
+        // If BOTH sell and CC happen on same day, push a second row for the CC
+        if (isSellDay && isCcDay) {
+          tradeLog.push({
+            date: d.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            action: `Covered Call`,
+            risk: d.risk,
+            price: d.price,
+            purchaseAmt: null,
+            sellProceeds: null,
+            ccIncome: ccIncome,
+            ccShares: ccShares,
+            ccContracts: ccContracts,
+            isLeap: false,
+            leapNotional: null,
+            leapContracts: null,
+          });
+        } else if (isCcDay) {
+          // Single CC row — patch ccIncome onto the already-pushed entry
+          const last = tradeLog[tradeLog.length - 1];
+          last.ccIncome = ccIncome;
+          last.ccShares = ccShares;
+          last.ccContracts = ccContracts;
+        }
       }
 
       if (purchase > 0 && !isSellDay) { totalInvested += purchase; totalAsset += purchase / d.price; }

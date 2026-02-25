@@ -251,24 +251,11 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Fetch live current price via Yahoo v7 quote endpoint
-            try {
-              const quoteUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.toUpperCase()}&fields=regularMarketPrice`)}`;
-              const quoteRes = await fetch(quoteUrl);
-              if (quoteRes.ok) {
-                const quoteJson = await quoteRes.json();
-                const livePrice = quoteJson?.quoteResponse?.result?.[0]?.regularMarketPrice;
-                if (livePrice && isFinite(livePrice) && livePrice > 0) {
-                  const todayTs = new Date().setHours(0, 0, 0, 0);
-                  const lastTs = raw[raw.length - 1]?.ts ?? 0;
-                  if (todayTs > lastTs) {
-                    raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
-                  } else {
-                    raw[raw.length - 1].price = livePrice;
-                  }
-                }
-              }
-            } catch(e) { /* silently keep historical data */ }
+            // Always update last bar with live price
+            const livePriceCustom = result.meta?.regularMarketPrice;
+            if (livePriceCustom && isFinite(livePriceCustom) && livePriceCustom > 0) {
+              raw[raw.length - 1].price = livePriceCustom;
+            }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -331,24 +318,11 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Fetch live current price via Yahoo v7 quote endpoint (much faster than chart)
-          try {
-            const quoteUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${asset.ticker}&fields=regularMarketPrice`)}`;
-            const quoteRes = await fetch(quoteUrl);
-            if (quoteRes.ok) {
-              const quoteJson = await quoteRes.json();
-              const livePrice = quoteJson?.quoteResponse?.result?.[0]?.regularMarketPrice;
-              if (livePrice && isFinite(livePrice) && livePrice > 0) {
-                const todayTs = new Date().setHours(0, 0, 0, 0);
-                const lastTs = raw[raw.length - 1]?.ts ?? 0;
-                if (todayTs > lastTs) {
-                  raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
-                } else {
-                  raw[raw.length - 1].price = livePrice;
-                }
-              }
-            }
-          } catch(e) { /* silently keep historical data */ }
+          // Always update last bar with live price — avoids timezone filter issues
+          const livePrice = result.meta?.regularMarketPrice;
+          if (livePrice && isFinite(livePrice) && livePrice > 0) {
+            raw[raw.length - 1].price = livePrice;
+          }
         }
 
         const parsed = addMovingAverage(raw);

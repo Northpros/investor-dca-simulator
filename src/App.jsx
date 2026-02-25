@@ -1328,6 +1328,61 @@ export default function DCASimulator() {
                   </div>
                 )}
 
+                {/* Combined Strategy Summary — shows when 2+ features active */}
+                {(() => {
+                  const activeFeatures = [
+                    true, // base portfolio always active
+                    sellEnabled && stats.totalSellProceeds > 0,
+                    leapEnabled && stats.leapCount > 0,
+                  ].filter(Boolean).length;
+
+                  if (activeFeatures < 2) return null;
+
+                  const shareValue   = stats.currentPortfolio;
+                  const sellProceeds = (sellEnabled && stats.totalSellProceeds > 0) ? stats.totalSellProceeds : 0;
+                  const leapValue    = (leapEnabled && stats.leapCount > 0) ? Math.max(0, stats.leapPortfolioValue) : 0;
+                  const totalValue   = shareValue + sellProceeds + leapValue;
+                  const totalGain    = totalValue - stats.totalInvested;
+                  const totalPct     = stats.totalInvested > 0 ? ((totalValue / stats.totalInvested - 1) * 100).toFixed(2) : 0;
+                  const isPos        = totalGain >= 0;
+
+                  return (
+                    <div style={{ marginTop: 4, paddingTop: 16, borderTop: `2px solid ${T.accent}` }}>
+                      <div style={{ fontSize: 10, color: T.accent, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>
+                        Combined Strategy
+                      </div>
+                      {/* Breakdown */}
+                      <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>
+                        Shares: <span style={{ color: T.text }}>{fmtC(shareValue)}</span>
+                      </div>
+                      {sellEnabled && sellProceeds > 0 && (
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>
+                          + Sell proceeds: <span style={{ color: "#f59e0b" }}>{fmtC(sellProceeds)}</span>
+                        </div>
+                      )}
+                      {leapEnabled && leapValue > 0 && (
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>
+                          + LEAP value: <span style={{ color: "#a78bfa" }}>{fmtC(leapValue)}</span>
+                        </div>
+                      )}
+                      {/* Total */}
+                      <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>Total Value</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {fmtC(totalValue)}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: isPos ? "#22c55e" : "#ef4444" }}>
+                        {isPos ? "+" : ""}{fmtC(totalGain)}
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2, color: isPos ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {isPos ? "+" : ""}{totalPct}%
+                      </div>
+                      <div style={{ fontSize: 9, color: T.textDim, marginTop: 6, lineHeight: 1.5 }}>
+                        vs {fmtC(stats.totalInvested)} invested
+                      </div>
+                    </div>
+                  );
+                })()}
+
 
               </div>
             )}

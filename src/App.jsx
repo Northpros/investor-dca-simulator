@@ -251,17 +251,24 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Pull live price from meta in the same response
-            const livePriceCustom = result.meta?.regularMarketPrice;
-            if (livePriceCustom && isFinite(livePriceCustom) && livePriceCustom > 0) {
-              const todayTs = new Date().setHours(0, 0, 0, 0);
-              const lastTs = raw[raw.length - 1]?.ts ?? 0;
-              if (todayTs > lastTs) {
-                raw.push({ ts: todayTs, date: new Date(todayTs), price: livePriceCustom });
-              } else {
-                raw[raw.length - 1].price = livePriceCustom;
+            // Bypass Vercel cache — fetch live price direct via corsproxy.io
+            try {
+              const liveUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1m&range=1d`)}`;
+              const liveRes = await fetch(liveUrl);
+              if (liveRes.ok) {
+                const liveJson = await liveRes.json();
+                const livePrice = liveJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+                if (livePrice && isFinite(livePrice) && livePrice > 0) {
+                  const todayTs = new Date().setHours(0, 0, 0, 0);
+                  const lastTs = raw[raw.length - 1]?.ts ?? 0;
+                  if (todayTs > lastTs) {
+                    raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+                  } else {
+                    raw[raw.length - 1].price = livePrice;
+                  }
+                }
               }
-            }
+            } catch(e) { /* silently keep historical data */ }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -324,17 +331,24 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Pull live price from meta in the same response — no second API call needed
-          const livePrice = result.meta?.regularMarketPrice;
-          if (livePrice && isFinite(livePrice) && livePrice > 0) {
-            const todayTs = new Date().setHours(0, 0, 0, 0);
-            const lastTs = raw[raw.length - 1]?.ts ?? 0;
-            if (todayTs > lastTs) {
-              raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
-            } else {
-              raw[raw.length - 1].price = livePrice;
+          // Bypass Vercel cache entirely — fetch live price direct via corsproxy.io
+          try {
+            const liveUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1m&range=1d`)}`;
+            const liveRes = await fetch(liveUrl);
+            if (liveRes.ok) {
+              const liveJson = await liveRes.json();
+              const livePrice = liveJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+              if (livePrice && isFinite(livePrice) && livePrice > 0) {
+                const todayTs = new Date().setHours(0, 0, 0, 0);
+                const lastTs = raw[raw.length - 1]?.ts ?? 0;
+                if (todayTs > lastTs) {
+                  raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+                } else {
+                  raw[raw.length - 1].price = livePrice;
+                }
+              }
             }
-          }
+          } catch(e) { /* silently keep historical data */ }
         }
 
         const parsed = addMovingAverage(raw);

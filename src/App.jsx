@@ -658,10 +658,9 @@ export default function DCASimulator() {
       let ccIncome = 0;
       let ccShares = 0;
       if (ccEnabled && isBuyDay && d.risk >= 0.90 && totalAsset > 0 && !isLastDay) {
-        // Use at most half the position, rounded down to nearest 100-share contract lot
-        const halfShares = totalAsset / 2;
-        ccShares = Math.floor(halfShares / 100) * 100;
-        if (ccShares >= 100) {
+        // Use half the position (simulation — no 100-share lot constraint)
+        ccShares = totalAsset / 2;
+        if (ccShares > 0) {
           ccIncome = ccShares * d.price * (ccPremiumPct / 100);
           totalCcIncome += ccIncome;
           ccCount++;
@@ -1600,7 +1599,7 @@ export default function DCASimulator() {
                               </>)
                             : isCcRow
                             ? (<>
-                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares / 100} contract${row.ccShares / 100 !== 1 ? "s" : ""} (${row.ccShares} shares)` : ""}</span>
+                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(4)} units (half position)` : ""}</span>
                                 <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
                               </>)
                             : (<>

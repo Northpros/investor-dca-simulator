@@ -174,6 +174,11 @@ export default function DCASimulator() {
   const [initAvgPrice, setInitAvgPrice] = useState("");
   const [sell80, setSell80] = useState(true);
   const [sell90, setSell90] = useState(true);
+  const [leapEnabled, setLeapEnabled] = useState(false);
+  const [leap10, setLeap10] = useState(true);   // 0.1 – 0.199 risk zone
+  const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
+  const [leapCostPct, setLeapCostPct] = useState(0.35);  // LEAP costs 35% of stock price
+  const [leapDelta, setLeapDelta] = useState(0.75);       // 0.75 delta
 
   const [dailyData, setDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -366,11 +371,12 @@ export default function DCASimulator() {
       setRiskBandIdx(5);
       setRiskOffset(-0.05);
     }
-    // Reset sell strategy and initial position
+    // Reset sell strategy, initial position and LEAP
     setSellEnabled(false);
     setInitEnabled(false);
     setInitShares("");
     setInitAvgPrice("");
+    setLeapEnabled(false);
   }, [assetId, customTicker]);
 
   // When switching to lump sum, extend end date to today so full growth is shown
@@ -480,6 +486,8 @@ export default function DCASimulator() {
     let totalAsset = 0;
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0, totalSellAsset = 0;
+    let leapCount = 0, totalLeapInvested = 0;
+    const leapPositions = []; // { entryPrice, notionalShares, cost, delta }
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -555,6 +563,26 @@ export default function DCASimulator() {
 
       // isBuyDay already set above from scheduledDays
 
+      // LEAP logic — replaces regular buy at risk zones 0-0.099 and 0.1-0.199
+      let isLeapDay = false;
+      let leapCost = 0;
+      let leapNotional = 0;
+      if (leapEnabled && isBuyDay && !isLastDay && purchase > 0) {
+        const inLeap09Zone = leap09 && d.risk < 0.10;
+        const inLeap10Zone = leap10 && d.risk >= 0.10 && d.risk < 0.20;
+        if (inLeap09Zone || inLeap10Zone) {
+          isLeapDay = true;
+          leapCost = purchase; // same dollar amount as regular buy
+          // Notional shares controlled = dollars / (stockPrice * costPct)
+          leapNotional = leapCost / (d.price * leapCostPct);
+          leapPositions.push({ entryPrice: d.price, notionalShares: leapNotional, cost: leapCost, delta: leapDelta });
+          totalLeapInvested += leapCost;
+          totalInvested += leapCost;
+          leapCount++;
+          purchase = 0; // don't buy shares — LEAP instead
+        }
+      }
+
       // Sell logic — only triggers on scheduled days, same as buys
       let sellPct = 0;
       let sellProceeds = 0;
@@ -577,6 +605,8 @@ export default function DCASimulator() {
         let action = "None";
         if (isSellDay) {
           action = `Sell ${(sellPct * 100).toFixed(0)}%`;
+        } else if (isLeapDay) {
+          action = `LEAP 0.${Math.round(leapDelta*100)}Δ`;
         } else if (!isLastDay && purchase > 0) {
           if (tab === "equal") action = "Buy 1x";
           else if (tab === "lump") action = "Lump Sum";
@@ -588,8 +618,10 @@ export default function DCASimulator() {
           action,
           risk: d.risk,
           price: d.price,
-          purchaseAmt: purchase,
+          purchaseAmt: isLeapDay ? leapCost : purchase,
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
+          isLeap: isLeapDay,
+          leapNotional: isLeapDay ? leapNotional : null,
         });
       }
 
@@ -606,10 +638,16 @@ export default function DCASimulator() {
 
       // Portfolio chart: sample every 3 days (performance)
       if (i % 3 === 0 || isLastDay) {
+        // Current LEAP portfolio value = cost + delta-adjusted gain on each position
+        const leapPortVal = leapPositions.reduce((sum, lp) => {
+          const gain = lp.delta * (d.price - lp.entryPrice) * lp.notionalShares;
+          return sum + lp.cost + gain;
+        }, 0);
         chartData.push({
           ts: d.ts, label: fmtDate(d.date),
           price: Math.round(d.price),
-          portfolio: totalAsset > 0 ? Math.max(1, Math.round(totalAsset * d.price)) : null,
+          portfolio: (totalAsset > 0 || leapPositions.length > 0)
+            ? Math.max(1, Math.round(totalAsset * d.price + Math.max(0, leapPortVal))) : null,
           invested: totalInvested > 0 ? Math.max(1, Math.round(totalInvested)) : null,
           lumpSum: Math.round(lumpAsset * d.price),
         });
@@ -633,12 +671,20 @@ export default function DCASimulator() {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
         lastPrice, currentPortfolio, gain, gainPct,
         totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds, totalSellAsset,
+        leapCount, totalLeapInvested,
+        leapPortfolioValue: leapPositions.reduce((sum, lp) => {
+          const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
+          return sum + lp.cost + lp.delta * (lastPx - lp.entryPrice) * lp.notionalShares;
+        }, 0),
+        avgLeapEntry: leapCount > 0
+          ? leapPositions.reduce((s, lp) => s + lp.entryPrice * lp.cost, 0) / totalLeapInvested
+          : 0,
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
         noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leap10, leapCostPct, leapDelta]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -944,6 +990,53 @@ export default function DCASimulator() {
             )}
           </div>
 
+          {/* LEAP Strategy */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+            <div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>LEAP Options</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {pillBtn(!leapEnabled, () => setLeapEnabled(false), "Off")}
+                {pillBtn(leapEnabled, () => setLeapEnabled(true), "On")}
+              </div>
+            </div>
+            {leapEnabled && (<>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
+                  <input type="checkbox" checked={leap10} onChange={e => setLeap10(e.target.checked)}
+                    style={{ accentColor: "#a78bfa", width: 14, height: 14, cursor: "pointer" }} />
+                  <span style={{ color: leap10 ? "#a78bfa" : T.textDim }}>Buy LEAP at risk 0.10 – 0.199</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
+                  <input type="checkbox" checked={leap09} onChange={e => setLeap09(e.target.checked)}
+                    style={{ accentColor: "#a78bfa", width: 14, height: 14, cursor: "pointer" }} />
+                  <span style={{ color: leap09 ? "#a78bfa" : T.textDim }}>Buy LEAP at risk 0.00 – 0.099</span>
+                </label>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>
+                  LEAP Cost <span style={{ color: "#a78bfa" }}>{(leapCostPct * 100).toFixed(0)}% of price</span>
+                </div>
+                <input type="range" min="0.20" max="0.60" step="0.01"
+                  value={leapCostPct}
+                  onChange={e => setLeapCostPct(parseFloat(e.target.value))}
+                  style={{ width: 100, accentColor: "#a78bfa", cursor: "pointer" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>
+                  Delta <span style={{ color: "#a78bfa" }}>{leapDelta.toFixed(2)}</span>
+                </div>
+                <input type="range" min="0.60" max="0.90" step="0.01"
+                  value={leapDelta}
+                  onChange={e => setLeapDelta(parseFloat(e.target.value))}
+                  style={{ width: 100, accentColor: "#a78bfa", cursor: "pointer" }} />
+              </div>
+              <div style={{ alignSelf: "flex-end", fontSize: 10, color: T.textDim, paddingBottom: 2, lineHeight: 1.6 }}>
+                Replaces share buy at<br/>selected risk zones.<br/>
+                <span style={{ color: "#a78bfa" }}>Approx. {(1 / leapCostPct).toFixed(1)}x leverage</span>
+              </div>
+            </>)}
+          </div>
+
           {/* Initial Investment */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
@@ -1199,6 +1292,7 @@ export default function DCASimulator() {
                     const isBuy = row.action.startsWith("Buy") || row.action === "Lump Sum";
                     const isSell = row.action.startsWith("Sell");
                     const isInit = row.action === "Initial Position";
+                    const isLeapRow = row.action?.startsWith("LEAP");
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (
                       <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: "transparent" }}>

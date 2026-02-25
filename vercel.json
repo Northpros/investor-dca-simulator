@@ -4,14 +4,5 @@
       "source": "/api/yahoo/:ticker",
       "destination": "https://query1.finance.yahoo.com/v8/finance/chart/:ticker?interval=1d&range=15y"
     }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" }
-      ]
-    }
   ]
 }

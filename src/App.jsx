@@ -251,10 +251,10 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Always update last bar with live price
+            // Always update last bar with live price directly on raw
             const livePriceCustom = result.meta?.regularMarketPrice;
             if (livePriceCustom && isFinite(livePriceCustom) && livePriceCustom > 0) {
-              raw[raw.length - 1].price = livePriceCustom;
+              raw[raw.length - 1] = { ...raw[raw.length - 1], price: livePriceCustom };
             }
           }
 
@@ -318,10 +318,10 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Always update last bar with live price — avoids timezone filter issues
+          // Always update last bar with live price directly on raw
           const livePrice = result.meta?.regularMarketPrice;
           if (livePrice && isFinite(livePrice) && livePrice > 0) {
-            raw[raw.length - 1].price = livePrice;
+            raw[raw.length - 1] = { ...raw[raw.length - 1], price: livePrice };
           }
         }
 

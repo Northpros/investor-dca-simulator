@@ -778,6 +778,8 @@ export default function DCASimulator() {
     }
 
     const lastPrice = rangeData[rangeData.length - 1]?.price ?? 0;
+    const prevPrice = rangeData[rangeData.length - 2]?.price ?? lastPrice;
+    const dailyChangePct = prevPrice > 0 ? ((lastPrice - prevPrice) / prevPrice * 100).toFixed(2) : 0;
     const currentPortfolio = totalAsset * lastPrice;
     const gain = currentPortfolio - totalInvested;
     const gainPct = totalInvested > 0 ? ((currentPortfolio / totalInvested - 1) * 100).toFixed(2) : 0;
@@ -787,7 +789,7 @@ export default function DCASimulator() {
       tradeLog,
       stats: {
         totalInvested, totalAsset, avgPrice: totalAsset > 0 ? totalInvested / totalAsset : 0,
-        lastPrice, currentPortfolio, gain, gainPct,
+        lastPrice, prevPrice, dailyChangePct, currentPortfolio, gain, gainPct,
         totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds, totalSellAsset, totalSellCostBasis,
         leapCount, totalLeapInvested,
         ccCount, totalCcIncome,
@@ -964,8 +966,8 @@ export default function DCASimulator() {
             {stats && (
               <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: T.text }}>
                 {fmtC(stats.lastPrice)}
-                <span style={{ fontSize: 11, marginLeft: 6, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
-                  {stats.gain >= 0 ? "▲" : "▼"} {Math.abs(stats.gainPct)}%
+                <span style={{ fontSize: 11, marginLeft: 6, color: stats.dailyChangePct >= 0 ? "#22c55e" : "#ef4444" }}>
+                  {stats.dailyChangePct >= 0 ? "▲" : "▼"} {Math.abs(stats.dailyChangePct)}%
                 </span>
               </span>
             )}

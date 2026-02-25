@@ -1380,7 +1380,8 @@ export default function DCASimulator() {
                       {/* Realized + Net Profit lines */}
                       {(sellEnabled && sellProceeds > 0) || (leapEnabled && leapValue > 0) ? (() => {
                         const totalRealized = (sellEnabled ? sellProceeds : 0) + (leapEnabled ? leapValue : 0);
-                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
+                        // LEAP value already includes cost basis. Only subtract cost basis from sell side.
+                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapValue : 0);
                         const isRealizedPos = totalRealized >= 0;
                         const isNetPos = totalNet >= 0;
                         return (

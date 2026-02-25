@@ -1365,30 +1365,31 @@ export default function DCASimulator() {
                         Shares value:
                         <span style={{ color: T.text, float: "right" }}>{fmtC(shareValue)}</span>
                       </div>
-                      {sellEnabled && sellProceeds > 0 && (<>
+                      {sellEnabled && sellProceeds > 0 && (
                         <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
                           Sell proceeds:
                           <span style={{ color: "#f59e0b", float: "right" }}>{fmtC(sellProceeds)}</span>
                         </div>
-                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
-                          Sell realized profit:
-                          <span style={{ color: sellRealizedProfit >= 0 ? "#22c55e" : "#ef4444", float: "right", fontWeight: 600 }}>
-                            {sellRealizedProfit >= 0 ? "+" : ""}{fmtC(sellRealizedProfit)}
-                          </span>
-                        </div>
-                      </>)}
-                      {leapEnabled && leapValue > 0 && (<>
+                      )}
+                      {leapEnabled && leapValue > 0 && (
                         <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
                           LEAP value:
                           <span style={{ color: "#a78bfa", float: "right" }}>{fmtC(leapValue)}</span>
                         </div>
-                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8 }}>
-                          LEAP profit:
-                          <span style={{ color: leapRealizedProfit >= 0 ? "#22c55e" : "#ef4444", float: "right", fontWeight: 600 }}>
-                            {leapRealizedProfit >= 0 ? "+" : ""}{fmtC(leapRealizedProfit)}
-                          </span>
-                        </div>
-                      </>)}
+                      )}
+                      {/* Total Realized Profit = sell profit + leap profit combined */}
+                      {(sellEnabled && sellProceeds > 0) || (leapEnabled && leapValue > 0) ? (() => {
+                        const totalRealized = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
+                        const isRealizedPos = totalRealized >= 0;
+                        return (
+                          <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8, paddingTop: 4, borderTop: `1px dashed ${T.border}` }}>
+                            Total Realized Profit:
+                            <span style={{ color: isRealizedPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
+                              {isRealizedPos ? "+" : ""}{fmtC(totalRealized)}
+                            </span>
+                          </div>
+                        );
+                      })() : null}
 
                       {/* Divider */}
                       <div style={{ borderTop: `1px solid ${T.border}`, marginBottom: 8 }} />

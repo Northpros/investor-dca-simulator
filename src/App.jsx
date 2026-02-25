@@ -674,7 +674,16 @@ export default function DCASimulator() {
         leapCount, totalLeapInvested,
         leapPortfolioValue: leapPositions.reduce((sum, lp) => {
           const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
-          return sum + lp.cost + lp.delta * (lastPx - lp.entryPrice) * lp.notionalShares;
+          const deltaGain = lp.delta * (lastPx - lp.entryPrice) * lp.notionalShares;
+          return sum + Math.max(0, lp.cost + deltaGain);
+        }, 0),
+        // Expiry value: full intrinsic at last price (no time value, no delta approximation)
+        // Strike estimated at 85% of entry price for 0.75 delta ITM LEAP
+        leapExpiryValue: leapPositions.reduce((sum, lp) => {
+          const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
+          const strike = lp.entryPrice * 0.85;
+          const intrinsic = Math.max(0, lastPx - strike) * lp.notionalShares;
+          return sum + intrinsic;
         }, 0),
         avgLeapEntry: leapCount > 0
           ? leapPositions.reduce((s, lp) => s + lp.entryPrice * lp.cost, 0) / totalLeapInvested
@@ -1214,7 +1223,53 @@ export default function DCASimulator() {
                   <div style={{ fontSize: 11, marginTop: 4, color: stats.gain >= 0 ? "#22c55e" : "#ef4444" }}>
                     {stats.gain >= 0 ? "+" : ""}{fmtC(stats.gain)} ({stats.gainPct}%)
                   </div>
+                  {leapEnabled && stats.leapCount > 0 && (
+                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
+                      <div style={{ fontSize: 10, color: T.textDim }}>+ LEAP Value (Δ-adj)</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#a78bfa", marginTop: 2 }}>
+                        {fmtC(Math.max(0, stats.leapPortfolioValue))}
+                      </div>
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>At Expiry (intrinsic)</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd", marginTop: 2 }}>
+                        {fmtC(stats.leapExpiryValue)}
+                      </div>
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>Combined Total</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginTop: 2, fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {fmtC(stats.currentPortfolio + Math.max(0, stats.leapPortfolioValue))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {leapEnabled && stats.leapCount > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>LEAP Summary</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#a78bfa", fontFamily: "'Space Grotesk', sans-serif" }}>
+                      {stats.leapCount} purchase{stats.leapCount !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ fontSize: 10, color: T.label, marginTop: 3 }}>
+                      Invested: {fmtC(stats.totalLeapInvested)}
+                    </div>
+                    <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
+                      Avg entry: {fmtC(stats.avgLeapEntry)}
+                    </div>
+                    {(() => {
+                      const leapPnl = stats.leapPortfolioValue - stats.totalLeapInvested;
+                      const leapPnlExpiry = stats.leapExpiryValue - stats.totalLeapInvested;
+                      return (<>
+                        <div style={{ fontSize: 11, marginTop: 6, color: leapPnl >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                          Δ-adj P&L: {leapPnl >= 0 ? "+" : ""}{fmtC(leapPnl)}
+                        </div>
+                        <div style={{ fontSize: 11, marginTop: 2, color: leapPnlExpiry >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                          Expiry P&L: {leapPnlExpiry >= 0 ? "+" : ""}{fmtC(leapPnlExpiry)}
+                        </div>
+                        <div style={{ fontSize: 9, color: T.textDim, marginTop: 4, lineHeight: 1.5 }}>
+                          Strike est. 85% of entry.<br/>Expiry = full intrinsic value.
+                        </div>
+                      </>);
+                    })()}
+                  </div>
+                )}
 
                 {sellEnabled && stats.totalSellProceeds > 0 && (
                   <div>

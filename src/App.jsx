@@ -1380,20 +1380,20 @@ export default function DCASimulator() {
                       {/* Realized + Net Profit lines */}
                       {(sellEnabled && sellProceeds > 0) || (leapEnabled && leapValue > 0) ? (() => {
                         const totalRealized = (sellEnabled ? sellProceeds : 0) + (leapEnabled ? leapValue : 0);
-                        // LEAP value already includes cost basis. Only subtract cost basis from sell side.
-                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapValue : 0);
+                        // Net = sell profit (proceeds minus cost basis) + LEAP profit (value minus what was paid)
+                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
                         const isRealizedPos = totalRealized >= 0;
                         const isNetPos = totalNet >= 0;
                         return (
                           <div style={{ marginBottom: 8, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
                             <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>
-                              Realized Profit:
-                              <span style={{ color: isRealizedPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
-                                {isRealizedPos ? "+" : ""}{fmtC(totalRealized)}
+                              Total Gross Value:
+                              <span style={{ color: T.text, float: "right", fontSize: 11 }}>
+                                {fmtC(totalRealized)}
                               </span>
                             </div>
                             <div style={{ fontSize: 10, color: T.textDim }}>
-                              Net (less cost basis):
+                              Net Profit:
                               <span style={{ color: isNetPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
                                 {isNetPos ? "+" : ""}{fmtC(totalNet)}
                               </span>

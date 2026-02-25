@@ -657,10 +657,13 @@ export default function DCASimulator() {
       // Covered call — only triggers on scheduled buy days, same as everything else
       let ccIncome = 0;
       let ccShares = 0;
+      let ccContracts = 0;
       if (ccEnabled && isBuyDay && d.risk >= 0.90 && totalAsset > 0 && !isLastDay) {
-        // Use half the position (simulation — no 100-share lot constraint)
-        ccShares = totalAsset / 2;
-        if (ccShares > 0) {
+        // Use at most half the position, rounded down to nearest 100-share contract lot
+        const halfShares = totalAsset / 2;
+        ccContracts = Math.floor(halfShares / 100);
+        ccShares = ccContracts * 100;
+        if (ccContracts >= 1) {
           ccIncome = ccShares * d.price * (ccPremiumPct / 100);
           totalCcIncome += ccIncome;
           ccCount++;
@@ -692,6 +695,7 @@ export default function DCASimulator() {
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
           ccIncome: ccIncome > 0 ? ccIncome : null,
           ccShares: ccIncome > 0 ? ccShares : null,
+          ccContracts: ccIncome > 0 ? ccContracts : null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
           leapContracts: isLeapDay ? (leapPositions[leapPositions.length - 1]?.contracts ?? null) : null,
@@ -1599,7 +1603,7 @@ export default function DCASimulator() {
                               </>)
                             : isCcRow
                             ? (<>
-                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(4)} units (half position)` : ""}</span>
+                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccContracts ? `${row.ccContracts} contract${row.ccContracts !== 1 ? "s" : ""} (${row.ccShares} shares)` : ""}</span>
                                 <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
                               </>)
                             : (<>

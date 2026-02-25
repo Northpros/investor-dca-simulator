@@ -1377,16 +1377,26 @@ export default function DCASimulator() {
                           <span style={{ color: "#a78bfa", float: "right" }}>{fmtC(leapValue)}</span>
                         </div>
                       )}
-                      {/* Total Realized Profit = sell profit + leap profit combined */}
+                      {/* Realized + Net Profit lines */}
                       {(sellEnabled && sellProceeds > 0) || (leapEnabled && leapValue > 0) ? (() => {
-                        const totalRealized = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
+                        const totalRealized = (sellEnabled ? sellProceeds : 0) + (leapEnabled ? leapValue : 0);
+                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
                         const isRealizedPos = totalRealized >= 0;
+                        const isNetPos = totalNet >= 0;
                         return (
-                          <div style={{ fontSize: 10, color: T.textDim, marginBottom: 8, paddingTop: 4, borderTop: `1px dashed ${T.border}` }}>
-                            Total Realized Profit:
-                            <span style={{ color: isRealizedPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
-                              {isRealizedPos ? "+" : ""}{fmtC(totalRealized)}
-                            </span>
+                          <div style={{ marginBottom: 8, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
+                            <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>
+                              Realized Profit:
+                              <span style={{ color: isRealizedPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
+                                {isRealizedPos ? "+" : ""}{fmtC(totalRealized)}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 10, color: T.textDim }}>
+                              Net (less cost basis):
+                              <span style={{ color: isNetPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
+                                {isNetPos ? "+" : ""}{fmtC(totalNet)}
+                              </span>
+                            </div>
                           </div>
                         );
                       })() : null}

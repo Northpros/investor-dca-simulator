@@ -1334,7 +1334,7 @@ export default function DCASimulator() {
                 {/* Combined Strategy Summary — shows when 2+ features active */}
                 {(() => {
                   const activeFeatures = [
-                    true, // base portfolio always active
+                    true,
                     sellEnabled && stats.totalSellProceeds > 0,
                     leapEnabled && stats.leapCount > 0,
                   ].filter(Boolean).length;
@@ -1349,69 +1349,40 @@ export default function DCASimulator() {
                   const totalPct     = stats.totalInvested > 0 ? ((totalValue / stats.totalInvested - 1) * 100).toFixed(2) : 0;
                   const isPos        = totalGain >= 0;
 
-                  // Realized profits
-                  const sellRealizedProfit = sellProceeds - stats.totalSellCostBasis;
-                  const leapRealizedProfit = leapValue - stats.totalLeapInvested;
-                  const shareGain = shareValue - (stats.totalInvested - sellProceeds - (leapEnabled ? stats.totalLeapInvested : 0));
-
                   return (
                     <div style={{ marginTop: 4, paddingTop: 16, borderTop: `2px solid ${T.accent}` }}>
                       <div style={{ fontSize: 10, color: T.accent, marginBottom: 8, letterSpacing: 1, textTransform: "uppercase" }}>
                         Combined Strategy
                       </div>
 
-                      {/* Component breakdown */}
+                      {/* Simple additive breakdown */}
                       <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
                         Shares value:
                         <span style={{ color: T.text, float: "right" }}>{fmtC(shareValue)}</span>
                       </div>
                       {sellEnabled && sellProceeds > 0 && (
                         <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
-                          Sell proceeds:
+                          + Sell proceeds:
                           <span style={{ color: "#f59e0b", float: "right" }}>{fmtC(sellProceeds)}</span>
                         </div>
                       )}
                       {leapEnabled && leapValue > 0 && (
                         <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>
-                          LEAP value:
+                          + LEAP value:
                           <span style={{ color: "#a78bfa", float: "right" }}>{fmtC(leapValue)}</span>
                         </div>
                       )}
-                      {/* Realized + Net Profit lines */}
-                      {(sellEnabled && sellProceeds > 0) || (leapEnabled && leapValue > 0) ? (() => {
-                        const totalRealized = (sellEnabled ? sellProceeds : 0) + (leapEnabled ? leapValue : 0);
-                        // Net = sell profit (proceeds minus cost basis) + LEAP profit (value minus what was paid)
-                        const totalNet = (sellEnabled ? sellRealizedProfit : 0) + (leapEnabled ? leapRealizedProfit : 0);
-                        const isRealizedPos = totalRealized >= 0;
-                        const isNetPos = totalNet >= 0;
-                        return (
-                          <div style={{ marginBottom: 8, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
-                            <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>
-                              Total Gross Value:
-                              <span style={{ color: T.text, float: "right", fontSize: 11 }}>
-                                {fmtC(totalRealized)}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: 10, color: T.textDim }}>
-                              Net Profit:
-                              <span style={{ color: isNetPos ? "#22c55e" : "#ef4444", float: "right", fontWeight: 700, fontSize: 11 }}>
-                                {isNetPos ? "+" : ""}{fmtC(totalNet)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })() : null}
 
                       {/* Divider */}
-                      <div style={{ borderTop: `1px solid ${T.border}`, marginBottom: 8 }} />
+                      <div style={{ borderTop: `1px solid ${T.border}`, margin: "8px 0" }} />
 
-                      {/* Total */}
+                      {/* Total Value */}
                       <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>Total Value</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", fontFamily: "'Space Grotesk', sans-serif" }}>
                         {fmtC(totalValue)}
                       </div>
-                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 6, marginBottom: 2 }}>Net Profit</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: isPos ? "#22c55e" : "#ef4444" }}>
+                      {/* Net Profit = Total Value − Total Invested */}
+                      <div style={{ fontSize: 11, marginTop: 6, color: isPos ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
                         {isPos ? "+" : ""}{fmtC(totalGain)}
                       </div>
                       <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: isPos ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>

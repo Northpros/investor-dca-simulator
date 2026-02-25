@@ -251,23 +251,17 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Fetch live current price from dedicated quote endpoint
-            try {
-              const quoteRes = await fetch(`/api/quote/${ticker.toUpperCase()}?_=${Date.now()}`);
-              if (quoteRes.ok) {
-                const quoteJson = await quoteRes.json();
-                const livePrice = quoteJson.chart?.result?.[0]?.meta?.regularMarketPrice;
-                if (livePrice && isFinite(livePrice) && livePrice > 0) {
-                  const todayTs = new Date().setHours(0, 0, 0, 0);
-                  const lastTs = raw[raw.length - 1]?.ts ?? 0;
-                  if (todayTs > lastTs) {
-                    raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
-                  } else {
-                    raw[raw.length - 1].price = livePrice;
-                  }
-                }
+            // Pull live price from meta in the same response
+            const livePriceCustom = result.meta?.regularMarketPrice;
+            if (livePriceCustom && isFinite(livePriceCustom) && livePriceCustom > 0) {
+              const todayTs = new Date().setHours(0, 0, 0, 0);
+              const lastTs = raw[raw.length - 1]?.ts ?? 0;
+              if (todayTs > lastTs) {
+                raw.push({ ts: todayTs, date: new Date(todayTs), price: livePriceCustom });
+              } else {
+                raw[raw.length - 1].price = livePriceCustom;
               }
-            } catch(e) { /* silently keep historical data */ }
+            }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -330,23 +324,17 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Fetch live current price from dedicated quote endpoint (interval=1m&range=1d)
-          try {
-            const quoteRes = await fetch(`/api/quote/${asset.ticker}?_=${Date.now()}`);
-            if (quoteRes.ok) {
-              const quoteJson = await quoteRes.json();
-              const livePrice = quoteJson.chart?.result?.[0]?.meta?.regularMarketPrice;
-              if (livePrice && isFinite(livePrice) && livePrice > 0) {
-                const todayTs = new Date().setHours(0, 0, 0, 0);
-                const lastTs = raw[raw.length - 1]?.ts ?? 0;
-                if (todayTs > lastTs) {
-                  raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
-                } else {
-                  raw[raw.length - 1].price = livePrice;
-                }
-              }
+          // Pull live price from meta in the same response — no second API call needed
+          const livePrice = result.meta?.regularMarketPrice;
+          if (livePrice && isFinite(livePrice) && livePrice > 0) {
+            const todayTs = new Date().setHours(0, 0, 0, 0);
+            const lastTs = raw[raw.length - 1]?.ts ?? 0;
+            if (todayTs > lastTs) {
+              raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+            } else {
+              raw[raw.length - 1].price = livePrice;
             }
-          } catch(e) { /* silently keep historical data */ }
+          }
         }
 
         const parsed = addMovingAverage(raw);

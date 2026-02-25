@@ -1080,11 +1080,6 @@ export default function DCASimulator() {
             {sellEnabled && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 2 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
-                  <input type="checkbox" checked={sell80} onChange={e => setSell80(e.target.checked)}
-                    style={{ accentColor: "#f59e0b", width: 14, height: 14, cursor: "pointer" }} />
-                  <span style={{ color: sell80 ? "#f59e0b" : "#555" }}>Sell <strong>5%</strong> at risk &gt; 0.80</span>
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
                   <input type="checkbox" checked={sell90} onChange={e => setSell90(e.target.checked)}
                     style={{ accentColor: "#f59e0b", width: 14, height: 14, cursor: "pointer" }} />
                   <span style={{ color: sell90 ? "#f59e0b" : "#555" }}>Sell <strong>10%</strong> at risk &gt; 0.90</span>

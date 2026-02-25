@@ -874,13 +874,34 @@ export default function DCASimulator() {
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div>
-            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, margin: 0, color: darkMode ? "#fff" : T.text, letterSpacing: -0.5 }}>
-              Investor DCA Simulation
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.8,
+              background: "linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+            }}>
+              Reversion Alpha
             </h1>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 800, letterSpacing: -0.8,
+              color: darkMode ? "#fff" : T.text
+            }}>
+              DCA Pro
+            </span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 500, letterSpacing: 2,
+              color: "#a78bfa", background: "#a78bfa18", border: "1px solid #a78bfa44",
+              borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", marginLeft: 2
+            }}>
+              v2.0
+            </span>
           </div>
-          <p style={{ color: T.label, fontSize: 12, margin: "6px 0 0" }}>
-            Enter your DCA amount and parameters to simulate different accumulation strategies based on your risk tolerance.
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, margin: "5px 0 0", letterSpacing: 0.3,
+            color: darkMode ? "#94a3b8" : T.label, fontStyle: "italic"
+          }}>
+            Where DCA meets Quantitative Strategy.
+          </p>
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, margin: "8px 0 0", letterSpacing: 0.2,
+            color: darkMode ? "#64748b" : T.textDim
+          }}>
+            Input Asset Ticker, DCA amount and parameters to simulate different accumulation and distribution strategies.
           </p>
         </div>
         <div style={{ textAlign: "right", fontSize: 11, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -904,9 +925,9 @@ export default function DCASimulator() {
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
-          <button style={tabStyle("equal")} onClick={() => setTab("equal")}>DCA Equal Amount</button>
-          <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump Sum</button>
-          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision DCA</button>
+          <button style={tabStyle("equal")} onClick={() => setTab("equal")}>Equal $ DCA</button>
+          <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump $um</button>
+          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision Entry DCA</button>
         </div>
 
         {/* Company Name Banner */}

@@ -951,7 +951,7 @@ export default function DCASimulator() {
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
           <button style={tabStyle("equal")} onClick={() => setTab("equal")}>Equal $ DCA</button>
           <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump $um</button>
-          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision Entry DCA</button>
+          <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision DCA</button>
         </div>
 
         {/* Company Name Banner */}

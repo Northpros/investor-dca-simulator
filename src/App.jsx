@@ -886,17 +886,11 @@ export default function DCASimulator() {
             }}>
               DCA Pro
             </span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 500, letterSpacing: 2,
-              color: "#a78bfa", background: "#a78bfa18", border: "1px solid #a78bfa44",
-              borderRadius: 4, padding: "2px 7px", textTransform: "uppercase", marginLeft: 2
-            }}>
-              v2.0
-            </span>
           </div>
-          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, margin: "5px 0 0", letterSpacing: 0.3,
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, margin: "6px 0 0", letterSpacing: 0.3,
             color: darkMode ? "#94a3b8" : T.label, fontStyle: "italic"
           }}>
-            Where DCA meets Quantitative Strategy.
+            Simulate, Optimize, and Execute Quantitative DCA Strategies.
           </p>
           <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, margin: "8px 0 0", letterSpacing: 0.2,
             color: darkMode ? "#64748b" : T.textDim

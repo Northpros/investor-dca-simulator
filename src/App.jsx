@@ -172,12 +172,10 @@ export default function DCASimulator() {
   const [initDate, setInitDate] = useState("2022-01-01");
   const [initShares, setInitShares] = useState("");
   const [initAvgPrice, setInitAvgPrice] = useState("");
-  const [sell80, setSell80] = useState(true);
   const [sell90, setSell90] = useState(true);
   const [leapEnabled, setLeapEnabled] = useState(false);
   const [ccEnabled, setCcEnabled] = useState(false);
   const [ccPremiumPct, setCcPremiumPct] = useState(0.5); // 0.5% of share value per month
-  const [leap10, setLeap10] = useState(true);   // 0.1 – 0.199 risk zone
   const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
   const [leapCostPct, setLeapCostPct] = useState(0.35);  // LEAP costs 35% of stock price
   const [leapDelta, setLeapDelta] = useState(0.75);       // 0.75 delta
@@ -604,8 +602,7 @@ export default function DCASimulator() {
       let leapNotional = 0;
       if (leapEnabled && isBuyDay && !isLastDay && purchase > 0) {
         const inLeap09Zone = leap09 && d.risk < 0.10;
-        const inLeap10Zone = leap10 && d.risk >= 0.10 && d.risk < 0.20;
-        if (inLeap09Zone || inLeap10Zone) {
+        if (inLeap09Zone) {
           // Real contract math: 1 contract = 100 shares, cost = premium/share × 100
           const premiumPerShare = d.price * leapCostPct;
           const costPerContract = premiumPerShare * 100;
@@ -642,7 +639,6 @@ export default function DCASimulator() {
       let sellProceeds = 0;
       if (sellEnabled && isBuyDay && totalAsset > 0 && !isLastDay) {
         if (sell90 && d.risk >= 0.90) sellPct = 0.10;
-        else if (sell80 && d.risk >= 0.80 && d.risk < 0.90) sellPct = 0.05;
         if (sellPct > 0) {
           const assetSold = totalAsset * sellPct;
           sellProceeds = assetSold * d.price;
@@ -660,10 +656,16 @@ export default function DCASimulator() {
 
       // Covered call — only triggers on scheduled buy days, same as everything else
       let ccIncome = 0;
+      let ccShares = 0;
       if (ccEnabled && isBuyDay && d.risk >= 0.90 && totalAsset > 0 && !isLastDay) {
-        ccIncome = totalAsset * d.price * (ccPremiumPct / 100);
-        totalCcIncome += ccIncome;
-        ccCount++;
+        // Use at most half the position, rounded down to nearest 100-share contract lot
+        const halfShares = totalAsset / 2;
+        ccShares = Math.floor(halfShares / 100) * 100;
+        if (ccShares >= 100) {
+          ccIncome = ccShares * d.price * (ccPremiumPct / 100);
+          totalCcIncome += ccIncome;
+          ccCount++;
+        }
       }
       const isCcDay = ccIncome > 0;
 
@@ -690,6 +692,7 @@ export default function DCASimulator() {
           purchaseAmt: isLeapDay ? leapCost : purchase,
           sellProceeds: sellProceeds > 0 ? sellProceeds : null,
           ccIncome: ccIncome > 0 ? ccIncome : null,
+          ccShares: ccIncome > 0 ? ccShares : null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
           leapContracts: isLeapDay ? (leapPositions[leapPositions.length - 1]?.contracts ?? null) : null,
@@ -784,7 +787,7 @@ export default function DCASimulator() {
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell80, sell90, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leap10, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -1101,11 +1104,6 @@ export default function DCASimulator() {
             </div>
             {leapEnabled && (<>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
-                  <input type="checkbox" checked={leap10} onChange={e => setLeap10(e.target.checked)}
-                    style={{ accentColor: "#a78bfa", width: 14, height: 14, cursor: "pointer" }} />
-                  <span style={{ color: leap10 ? "#a78bfa" : T.textDim }}>Buy LEAP at risk 0.10 – 0.199</span>
-                </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
                   <input type="checkbox" checked={leap09} onChange={e => setLeap09(e.target.checked)}
                     style={{ accentColor: "#a78bfa", width: 14, height: 14, cursor: "pointer" }} />
@@ -1606,7 +1604,10 @@ export default function DCASimulator() {
                                 <span style={{ fontWeight: 700 }}>{row.leapPnl >= 0 ? "+" : ""}{fmtC(row.leapPnl ?? 0)} P&L</span>
                               </>)
                             : isCcRow
-                            ? <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
+                            ? (<>
+                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares / 100} contract${row.ccShares / 100 !== 1 ? "s" : ""} (${row.ccShares} shares)` : ""}</span>
+                                <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
+                              </>)
                             : (<>
                                 {fmtC(row.portfolioValue ?? 0)}
                                 {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}

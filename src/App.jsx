@@ -175,9 +175,9 @@ export default function DCASimulator() {
   const [sell90, setSell90] = useState(true);
   const [leapEnabled, setLeapEnabled] = useState(false);
   const [ccEnabled, setCcEnabled] = useState(false);
-  const [ccPremiumPct, setCcPremiumPct] = useState(0.5); // 0.5% of share value per month
+  const [ccPremiumPct, setCcPremiumPct] = useState(0.40); // 0.40% of share value per month
   const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
-  const [leapCostPct, setLeapCostPct] = useState(0.35);  // LEAP costs 35% of stock price
+  const [leapCostPct, setLeapCostPct] = useState(0.40);  // LEAP costs 40% of stock price
   const [leapDelta, setLeapDelta] = useState(0.75);       // 0.75 delta
 
   const [dailyData, setDailyData] = useState([]);
@@ -250,6 +250,33 @@ export default function DCASimulator() {
             if (!timestamps || !closes) throw new Error("Unexpected data format");
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
+
+            // Append today's live price if last bar is from a previous day
+            try {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
+              if (lastBarStr < todayStr) {
+                const liveRes = await fetch(`/api/yahoo/${ticker.toUpperCase()}?range=1d&interval=5m&_=${Date.now()}`);
+                if (liveRes.ok) {
+                  const liveJson = await liveRes.json();
+                  const liveResult = liveJson.chart?.result?.[0];
+                  const liveTimes = liveResult?.timestamp;
+                  const liveCloses = liveResult?.indicators?.quote?.[0]?.close;
+                  if (liveTimes && liveCloses) {
+                    let latestPrice = null;
+                    for (let k = liveCloses.length - 1; k >= 0; k--) {
+                      if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
+                        latestPrice = liveCloses[k]; break;
+                      }
+                    }
+                    if (latestPrice) {
+                      const todayTs = new Date(todayStr).getTime();
+                      raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
+                    }
+                  }
+                }
+              }
+            } catch(e) { /* silently skip */ }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -311,6 +338,35 @@ export default function DCASimulator() {
             price: closes[i],
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
+
+          // Append today's live price if the last bar is from a previous day
+          try {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
+            if (lastBarStr < todayStr) {
+              const liveRes = await fetch(`/api/yahoo/${asset.ticker ?? customTicker}?range=1d&interval=5m&_=${Date.now()}`);
+              if (liveRes.ok) {
+                const liveJson = await liveRes.json();
+                const liveResult = liveJson.chart?.result?.[0];
+                const liveTimes = liveResult?.timestamp;
+                const liveCloses = liveResult?.indicators?.quote?.[0]?.close;
+                if (liveTimes && liveCloses) {
+                  // Get the latest valid price from today's intraday bars
+                  let latestPrice = null;
+                  for (let k = liveCloses.length - 1; k >= 0; k--) {
+                    if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
+                      latestPrice = liveCloses[k];
+                      break;
+                    }
+                  }
+                  if (latestPrice) {
+                    const todayTs = new Date(todayStr).getTime();
+                    raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
+                  }
+                }
+              }
+            }
+          } catch(e) { /* silently skip live price append */ }
         }
 
         const parsed = addMovingAverage(raw);

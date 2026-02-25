@@ -490,8 +490,11 @@ export default function DCASimulator() {
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0, totalSellAsset = 0, totalSellCostBasis = 0;
     let leapCount = 0, totalLeapInvested = 0;
+    let leapRealizedPnl = 0; // P&L from expired/closed LEAP positions
+    let leapClosedCount = 0;
     let ccCount = 0, totalCcIncome = 0;
-    const leapPositions = []; // { entryPrice, notionalShares, cost, delta }
+    const leapPositions = []; // open positions: { entryPrice, notionalShares, cost, delta, entryTs, termMonths, expiryTs }
+    const leapClosed = [];    // closed positions with realized P&L
     const tradeLog = [];
     const chartData = [];
     const riskData = [];
@@ -567,6 +570,33 @@ export default function DCASimulator() {
 
       // isBuyDay already set above from scheduledDays
 
+      // Close expired LEAP positions at today's price
+      for (let li = leapPositions.length - 1; li >= 0; li--) {
+        const lp = leapPositions[li];
+        if (d.ts >= lp.expiryTs) {
+          const strike = lp.entryPrice * 0.92;
+          const intrinsicAtExpiry = Math.max(0, d.price - strike) * lp.notionalShares;
+          const pnl = intrinsicAtExpiry - lp.cost; // net P&L after cost
+          leapRealizedPnl += pnl;
+          leapClosedCount++;
+          leapClosed.push({ ...lp, expiryPrice: d.price, intrinsicAtExpiry, pnl });
+          leapPositions.splice(li, 1); // remove from open positions
+          // Add expiry event to trade log
+          tradeLog.push({
+            date: d.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            action: pnl >= 0 ? "LEAP Expired ✓" : "LEAP Expired ✗",
+            risk: d.risk,
+            price: d.price,
+            purchaseAmt: null,
+            sellProceeds: intrinsicAtExpiry > 0 ? intrinsicAtExpiry : null,
+            ccIncome: null,
+            isLeap: false,
+            leapExpiry: true,
+            leapPnl: pnl,
+          });
+        }
+      }
+
       // LEAP logic — replaces regular buy at risk zones 0-0.099 and 0.1-0.199
       let isLeapDay = false;
       let leapCost = 0;
@@ -579,7 +609,9 @@ export default function DCASimulator() {
           leapCost = purchase; // same dollar amount as regular buy
           // Notional shares controlled = dollars / (stockPrice * costPct)
           leapNotional = leapCost / (d.price * leapCostPct);
-          leapPositions.push({ entryPrice: d.price, notionalShares: leapNotional, cost: leapCost, delta: leapDelta });
+          const termMonths = 18;
+          const expiryTs = d.ts + termMonths * 30.44 * 24 * 60 * 60 * 1000;
+          leapPositions.push({ entryPrice: d.price, notionalShares: leapNotional, cost: leapCost, delta: leapDelta, entryTs: d.ts, termMonths, expiryTs });
           totalLeapInvested += leapCost;
           totalInvested += leapCost;
           leapCount++;
@@ -658,16 +690,23 @@ export default function DCASimulator() {
 
       // Portfolio chart: sample every 3 days (performance)
       if (i % 3 === 0 || isLastDay) {
-        // Current LEAP portfolio value = cost + delta-adjusted gain on each position
+        // Current LEAP value: open positions only (expired ones already booked as realized P&L)
         const leapPortVal = leapPositions.reduce((sum, lp) => {
-          const gain = lp.delta * (d.price - lp.entryPrice) * lp.notionalShares;
-          return sum + lp.cost + gain;
+          const strike = lp.entryPrice * 0.92;
+          const intrinsicAtEntry = Math.max(0, lp.entryPrice - strike) * lp.notionalShares;
+          const extrinsicAtEntry = Math.max(0, lp.cost - intrinsicAtEntry);
+          const monthsHeld = (d.ts - lp.entryTs) / (1000 * 60 * 60 * 24 * 30.44);
+          const extrinsicLeft = extrinsicAtEntry * Math.max(0, 1 - monthsHeld / lp.termMonths);
+          const intrinsicNow = Math.max(0, d.price - strike) * lp.notionalShares;
+          return sum + intrinsicNow + extrinsicLeft;
         }, 0);
+        // Add realized P&L from expired LEAPs (cash already received/lost)
+        const totalLeapValue = leapPortVal + Math.max(0, leapRealizedPnl);
         chartData.push({
           ts: d.ts, label: fmtDate(d.date),
           price: Math.round(d.price),
-          portfolio: (totalAsset > 0 || leapPositions.length > 0)
-            ? Math.max(1, Math.round(totalAsset * d.price + Math.max(0, leapPortVal))) : null,
+          portfolio: (totalAsset > 0 || leapPositions.length > 0 || leapClosedCount > 0)
+            ? Math.max(1, Math.round(totalAsset * d.price + totalLeapValue)) : null,
           invested: totalInvested > 0 ? Math.max(1, Math.round(totalInvested)) : null,
           lumpSum: Math.round(lumpAsset * d.price),
         });
@@ -693,19 +732,31 @@ export default function DCASimulator() {
         totalPeriods, totalMonths: Math.round(rangeData.length / 30), buyCount, sellCount, totalSellProceeds, totalSellAsset, totalSellCostBasis,
         leapCount, totalLeapInvested,
         ccCount, totalCcIncome,
-        leapPortfolioValue: leapPositions.reduce((sum, lp) => {
+        // Open positions: current mark-to-market value
+        leapPortfolioValue: (() => {
           const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
-          const deltaGain = lp.delta * (lastPx - lp.entryPrice) * lp.notionalShares;
-          return sum + Math.max(0, lp.cost + deltaGain);
-        }, 0),
-        // Expiry value: full intrinsic at last price (no time value, no delta approximation)
-        // Strike estimated at 85% of entry price for 0.75 delta ITM LEAP
-        leapExpiryValue: leapPositions.reduce((sum, lp) => {
+          const lastTs = rangeData[rangeData.length - 1]?.ts ?? 0;
+          const openVal = leapPositions.reduce((sum, lp) => {
+            const strike = lp.entryPrice * 0.92;
+            const intrinsicAtEntry = Math.max(0, lp.entryPrice - strike) * lp.notionalShares;
+            const extrinsicAtEntry = Math.max(0, lp.cost - intrinsicAtEntry);
+            const monthsHeld = (lastTs - lp.entryTs) / (1000 * 60 * 60 * 24 * 30.44);
+            const extrinsicLeft = extrinsicAtEntry * Math.max(0, 1 - monthsHeld / lp.termMonths);
+            const intrinsicNow = Math.max(0, lastPx - strike) * lp.notionalShares;
+            return sum + intrinsicNow + extrinsicLeft;
+          }, 0);
+          // Add back net cash from expired positions (positive = profit, negative = loss)
+          return openVal + leapRealizedPnl;
+        })(),
+        leapExpiryValue: (() => {
+          // What open positions would be worth if expired today at last price
           const lastPx = rangeData[rangeData.length - 1]?.price ?? 0;
-          const strike = lp.entryPrice * 0.85;
-          const intrinsic = Math.max(0, lastPx - strike) * lp.notionalShares;
-          return sum + intrinsic;
-        }, 0),
+          return leapPositions.reduce((sum, lp) => {
+            const strike = lp.entryPrice * 0.92;
+            return sum + Math.max(0, lastPx - strike) * lp.notionalShares;
+          }, 0);
+        })(),
+        leapRealizedPnl, leapClosedCount,
         avgLeapEntry: leapCount > 0
           ? leapPositions.reduce((s, lp) => s + lp.entryPrice * lp.cost, 0) / totalLeapInvested
           : 0,
@@ -1326,6 +1377,16 @@ export default function DCASimulator() {
                     <div style={{ fontSize: 10, color: T.label, marginTop: 2 }}>
                       Avg entry: {fmtC(stats.avgLeapEntry)}
                     </div>
+                    {stats.leapClosedCount > 0 && (
+                      <div style={{ fontSize: 10, marginTop: 4, color: stats.leapRealizedPnl >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {stats.leapClosedCount} expired · Realized: {stats.leapRealizedPnl >= 0 ? "+" : ""}{fmtC(stats.leapRealizedPnl)}
+                      </div>
+                    )}
+                    {leapPositions && leapPositions.length > 0 && (
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>
+                        {stats.leapCount - stats.leapClosedCount} still open
+                      </div>
+                    )}
                     {(() => {
                       const leapPnl = stats.leapPortfolioValue - stats.totalLeapInvested;
                       const leapPnlExpiry = stats.leapExpiryValue - stats.totalLeapInvested;
@@ -1337,7 +1398,7 @@ export default function DCASimulator() {
                           Expiry P&L: {leapPnlExpiry >= 0 ? "+" : ""}{fmtC(leapPnlExpiry)}
                         </div>
                         <div style={{ fontSize: 9, color: T.textDim, marginTop: 4, lineHeight: 1.5 }}>
-                          Strike est. 85% of entry.<br/>Expiry = full intrinsic value.
+                          Strike = 92% of entry.<br/>Expiry = intrinsic value.<br/>Δ-adj = intrinsic + decayed extrinsic.
                         </div>
                       </>);
                     })()}
@@ -1493,6 +1554,7 @@ export default function DCASimulator() {
                     const isSell = row.action.startsWith("Sell");
                     const isInit = row.action === "Initial Position";
                     const isLeapRow = row.action?.startsWith("LEAP");
+                    const isLeapExpiry = row.leapExpiry === true;
                     const isCcRow = row.action === "Covered Call";
                     const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
                     return (

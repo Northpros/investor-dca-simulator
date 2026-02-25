@@ -408,7 +408,7 @@ export default function DCASimulator() {
   // Apply offset to all risk values in rangeData
   const rangeData = useMemo(() => {
     const s = new Date(startDate).getTime();
-    const e = new Date(endDate).getTime();
+    const e = new Date(endDate + "T23:59:59").getTime();
     return dailyData
       .filter(d => d.ts >= s && d.ts <= e)
       .map(d => ({ ...d, risk: parseFloat(Math.min(1, Math.max(0, d.risk + riskOffset)).toFixed(4)) }));

@@ -251,28 +251,24 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Append today's live price if last bar is from a previous day
+            // Append today's live price using 5d/1h intraday — more reliable than 1d/5m
             try {
               const todayStr = new Date().toISOString().slice(0, 10);
               const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
               if (lastBarStr < todayStr) {
-                const liveRes = await fetch(`/api/yahoo/${ticker.toUpperCase()}?range=1d&interval=5m&_=${Date.now()}`);
+                const liveRes = await fetch(`/api/yahoo/${ticker.toUpperCase()}?range=5d&interval=1h&_=${Date.now()}`);
                 if (liveRes.ok) {
                   const liveJson = await liveRes.json();
-                  const liveResult = liveJson.chart?.result?.[0];
-                  const liveTimes = liveResult?.timestamp;
-                  const liveCloses = liveResult?.indicators?.quote?.[0]?.close;
-                  if (liveTimes && liveCloses) {
-                    let latestPrice = null;
-                    for (let k = liveCloses.length - 1; k >= 0; k--) {
-                      if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
-                        latestPrice = liveCloses[k]; break;
-                      }
+                  const liveCloses = liveJson.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
+                  let latestPrice = null;
+                  for (let k = liveCloses.length - 1; k >= 0; k--) {
+                    if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
+                      latestPrice = liveCloses[k]; break;
                     }
-                    if (latestPrice) {
-                      const todayTs = new Date(todayStr).getTime();
-                      raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
-                    }
+                  }
+                  if (latestPrice) {
+                    const todayTs = new Date(todayStr).getTime();
+                    raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
                   }
                 }
               }
@@ -339,30 +335,24 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Append today's live price if the last bar is from a previous day
+          // Append today's live price using 5d/1h intraday — more reliable than 1d/5m
           try {
             const todayStr = new Date().toISOString().slice(0, 10);
             const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
             if (lastBarStr < todayStr) {
-              const liveRes = await fetch(`/api/yahoo/${asset.ticker ?? customTicker}?range=1d&interval=5m&_=${Date.now()}`);
+              const liveRes = await fetch(`/api/yahoo/${asset.ticker}?range=5d&interval=1h&_=${Date.now()}`);
               if (liveRes.ok) {
                 const liveJson = await liveRes.json();
-                const liveResult = liveJson.chart?.result?.[0];
-                const liveTimes = liveResult?.timestamp;
-                const liveCloses = liveResult?.indicators?.quote?.[0]?.close;
-                if (liveTimes && liveCloses) {
-                  // Get the latest valid price from today's intraday bars
-                  let latestPrice = null;
-                  for (let k = liveCloses.length - 1; k >= 0; k--) {
-                    if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
-                      latestPrice = liveCloses[k];
-                      break;
-                    }
+                const liveCloses = liveJson.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
+                let latestPrice = null;
+                for (let k = liveCloses.length - 1; k >= 0; k--) {
+                  if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
+                    latestPrice = liveCloses[k]; break;
                   }
-                  if (latestPrice) {
-                    const todayTs = new Date(todayStr).getTime();
-                    raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
-                  }
+                }
+                if (latestPrice) {
+                  const todayTs = new Date(todayStr).getTime();
+                  raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
                 }
               }
             }
@@ -919,7 +909,7 @@ export default function DCASimulator() {
   return (
     <div style={{ background: T.bg, minHeight: "100vh", color: T.text, fontFamily: "'DM Mono', monospace", padding: "24px 28px" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Space+Grotesk:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700;1,800&display=swap');
         * { box-sizing: border-box; }
         input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
         ::-webkit-scrollbar { width: 4px; }

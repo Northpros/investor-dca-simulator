@@ -251,13 +251,13 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Bypass Vercel cache — fetch live price direct via allorigins.win
+            // Fetch live current price via Yahoo v7 quote endpoint
             try {
-              const liveUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1m&range=1d`)}`;
-              const liveRes = await fetch(liveUrl);
-              if (liveRes.ok) {
-                const liveJson = await liveRes.json();
-                const livePrice = liveJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+              const quoteUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.toUpperCase()}&fields=regularMarketPrice`)}`;
+              const quoteRes = await fetch(quoteUrl);
+              if (quoteRes.ok) {
+                const quoteJson = await quoteRes.json();
+                const livePrice = quoteJson?.quoteResponse?.result?.[0]?.regularMarketPrice;
                 if (livePrice && isFinite(livePrice) && livePrice > 0) {
                   const todayTs = new Date().setHours(0, 0, 0, 0);
                   const lastTs = raw[raw.length - 1]?.ts ?? 0;
@@ -331,13 +331,13 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Bypass Vercel cache — fetch live price direct via allorigins.win
+          // Fetch live current price via Yahoo v7 quote endpoint (much faster than chart)
           try {
-            const liveUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1m&range=1d`)}`;
-            const liveRes = await fetch(liveUrl);
-            if (liveRes.ok) {
-              const liveJson = await liveRes.json();
-              const livePrice = liveJson.chart?.result?.[0]?.meta?.regularMarketPrice;
+            const quoteUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${asset.ticker}&fields=regularMarketPrice`)}`;
+            const quoteRes = await fetch(quoteUrl);
+            if (quoteRes.ok) {
+              const quoteJson = await quoteRes.json();
+              const livePrice = quoteJson?.quoteResponse?.result?.[0]?.regularMarketPrice;
               if (livePrice && isFinite(livePrice) && livePrice > 0) {
                 const todayTs = new Date().setHours(0, 0, 0, 0);
                 const lastTs = raw[raw.length - 1]?.ts ?? 0;

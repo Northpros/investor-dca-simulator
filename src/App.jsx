@@ -756,7 +756,7 @@ export default function DCASimulator() {
             return sum + Math.max(0, lastPx - strike) * lp.notionalShares;
           }, 0);
         })(),
-        leapRealizedPnl, leapClosedCount,
+        leapRealizedPnl, leapClosedCount, openLeapCount: leapPositions.length,
         avgLeapEntry: leapCount > 0
           ? leapPositions.reduce((s, lp) => s + lp.entryPrice * lp.cost, 0) / totalLeapInvested
           : 0,
@@ -1382,9 +1382,9 @@ export default function DCASimulator() {
                         {stats.leapClosedCount} expired · Realized: {stats.leapRealizedPnl >= 0 ? "+" : ""}{fmtC(stats.leapRealizedPnl)}
                       </div>
                     )}
-                    {leapPositions && leapPositions.length > 0 && (
+                    {stats.openLeapCount > 0 && (
                       <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>
-                        {stats.leapCount - stats.leapClosedCount} still open
+                        {stats.openLeapCount} still open
                       </div>
                     )}
                     {(() => {

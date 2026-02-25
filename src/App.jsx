@@ -1233,10 +1233,20 @@ export default function DCASimulator() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd", marginTop: 2 }}>
                         {fmtC(stats.leapExpiryValue)}
                       </div>
-                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 4 }}>Combined Total</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginTop: 2, fontFamily: "'Space Grotesk', sans-serif" }}>
-                        {fmtC(stats.currentPortfolio + Math.max(0, stats.leapPortfolioValue))}
-                      </div>
+                      <div style={{ fontSize: 10, color: T.textDim, marginTop: 8 }}>Combined Total</div>
+                      {(() => {
+                        const combined = stats.currentPortfolio + Math.max(0, stats.leapPortfolioValue);
+                        const combinedGain = combined - stats.totalInvested;
+                        const combinedGainPct = stats.totalInvested > 0 ? ((combined / stats.totalInvested - 1) * 100).toFixed(2) : 0;
+                        return (<>
+                          <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", marginTop: 2, fontFamily: "'Space Grotesk', sans-serif" }}>
+                            {fmtC(combined)}
+                          </div>
+                          <div style={{ fontSize: 11, marginTop: 4, color: combinedGain >= 0 ? "#22c55e" : "#ef4444" }}>
+                            {combinedGain >= 0 ? "+" : ""}{fmtC(combinedGain)} ({combinedGainPct}%)
+                          </div>
+                        </>);
+                      })()}
                     </div>
                   )}
                 </div>

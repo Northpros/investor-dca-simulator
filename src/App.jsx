@@ -251,28 +251,17 @@ export default function DCASimulator() {
             raw = timestamps.map((ts, i) => ({ ts: ts * 1000, date: new Date(ts * 1000), price: closes[i] }))
               .filter(d => d.price != null && d.price > 0 && isFinite(d.price));
 
-            // Append today's live price using 5d/1h intraday — more reliable than 1d/5m
-            try {
-              const todayStr = new Date().toISOString().slice(0, 10);
-              const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
-              if (lastBarStr < todayStr) {
-                const liveRes = await fetch(`/api/yahoo/${ticker.toUpperCase()}?range=5d&interval=1h&_=${Date.now()}`);
-                if (liveRes.ok) {
-                  const liveJson = await liveRes.json();
-                  const liveCloses = liveJson.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
-                  let latestPrice = null;
-                  for (let k = liveCloses.length - 1; k >= 0; k--) {
-                    if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
-                      latestPrice = liveCloses[k]; break;
-                    }
-                  }
-                  if (latestPrice) {
-                    const todayTs = new Date(todayStr).getTime();
-                    raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
-                  }
-                }
+            // Yahoo meta.regularMarketPrice is the live current price — append as today's bar
+            const livePrice = result.meta?.regularMarketPrice;
+            if (livePrice && isFinite(livePrice) && livePrice > 0) {
+              const todayTs = new Date().setHours(0, 0, 0, 0);
+              const lastTs = raw[raw.length - 1]?.ts ?? 0;
+              if (todayTs > lastTs) {
+                raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+              } else {
+                raw[raw.length - 1].price = livePrice;
               }
-            } catch(e) { /* silently skip */ }
+            }
           }
 
           if (raw.length === 0) throw new Error(`No price data found for "${ticker.toUpperCase()}"`);
@@ -335,28 +324,18 @@ export default function DCASimulator() {
           })).filter(d => d.price != null && d.price > 0 && isFinite(d.price));
           if (raw.length === 0) throw new Error("No valid price data");
 
-          // Append today's live price using 5d/1h intraday — more reliable than 1d/5m
-          try {
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const lastBarStr = raw[raw.length - 1]?.date.toISOString().slice(0, 10);
-            if (lastBarStr < todayStr) {
-              const liveRes = await fetch(`/api/yahoo/${asset.ticker}?range=5d&interval=1h&_=${Date.now()}`);
-              if (liveRes.ok) {
-                const liveJson = await liveRes.json();
-                const liveCloses = liveJson.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
-                let latestPrice = null;
-                for (let k = liveCloses.length - 1; k >= 0; k--) {
-                  if (liveCloses[k] != null && isFinite(liveCloses[k]) && liveCloses[k] > 0) {
-                    latestPrice = liveCloses[k]; break;
-                  }
-                }
-                if (latestPrice) {
-                  const todayTs = new Date(todayStr).getTime();
-                  raw.push({ ts: todayTs, date: new Date(todayStr), price: latestPrice });
-                }
-              }
+          // Yahoo meta.regularMarketPrice is the live current price — append as today's bar
+          const livePrice = result.meta?.regularMarketPrice;
+          if (livePrice && isFinite(livePrice) && livePrice > 0) {
+            const todayTs = new Date().setHours(0, 0, 0, 0);
+            const lastTs = raw[raw.length - 1]?.ts ?? 0;
+            if (todayTs > lastTs) {
+              raw.push({ ts: todayTs, date: new Date(todayTs), price: livePrice });
+            } else {
+              // Replace last bar with live price if same day
+              raw[raw.length - 1].price = livePrice;
             }
-          } catch(e) { /* silently skip live price append */ }
+          }
         }
 
         const parsed = addMovingAverage(raw);

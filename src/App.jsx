@@ -593,6 +593,7 @@ export default function DCASimulator() {
             isLeap: false,
             leapExpiry: true,
             leapPnl: pnl,
+            leapContracts: lp.contracts ?? null,
           });
         }
       }
@@ -605,17 +606,34 @@ export default function DCASimulator() {
         const inLeap09Zone = leap09 && d.risk < 0.10;
         const inLeap10Zone = leap10 && d.risk >= 0.10 && d.risk < 0.20;
         if (inLeap09Zone || inLeap10Zone) {
-          isLeapDay = true;
-          leapCost = purchase; // same dollar amount as regular buy
-          // Notional shares controlled = dollars / (stockPrice * costPct)
-          leapNotional = leapCost / (d.price * leapCostPct);
-          const termMonths = 18;
-          const expiryTs = d.ts + termMonths * 30.44 * 24 * 60 * 60 * 1000;
-          leapPositions.push({ entryPrice: d.price, notionalShares: leapNotional, cost: leapCost, delta: leapDelta, entryTs: d.ts, termMonths, expiryTs });
-          totalLeapInvested += leapCost;
-          totalInvested += leapCost;
-          leapCount++;
-          purchase = 0; // don't buy shares — LEAP instead
+          // Real contract math: 1 contract = 100 shares, cost = premium/share × 100
+          const premiumPerShare = d.price * leapCostPct;
+          const costPerContract = premiumPerShare * 100;
+          const contracts = Math.floor(purchase / costPerContract);
+
+          if (contracts === 0) {
+            // Can't afford even 1 contract — buy shares instead (no LEAP this period)
+            // purchase stays as-is, isLeapDay stays false
+          } else {
+            isLeapDay = true;
+            leapCost = contracts * costPerContract; // actual spend (may be less than purchase)
+            leapNotional = contracts * 100;          // always a multiple of 100
+            const leftover = purchase - leapCost;    // unspent cash — buy shares with remainder
+            const termMonths = 18;
+            const expiryTs = d.ts + termMonths * 30.44 * 24 * 60 * 60 * 1000;
+            leapPositions.push({ entryPrice: d.price, notionalShares: leapNotional, contracts, cost: leapCost, delta: leapDelta, entryTs: d.ts, termMonths, expiryTs });
+            totalLeapInvested += leapCost;
+            totalInvested += leapCost;
+            leapCount++;
+            // Buy shares with any leftover (e.g. $2500 budget, $1800 spent on 1 contract → $700 buys shares)
+            if (leftover > 0) {
+              totalAsset += leftover / d.price;
+              totalAssetNoSell += leftover / d.price;
+              totalInvested += leftover;
+              buyCount++;
+            }
+            purchase = 0; // handled above
+          }
         }
       }
 
@@ -674,6 +692,7 @@ export default function DCASimulator() {
           ccIncome: ccIncome > 0 ? ccIncome : null,
           isLeap: isLeapDay,
           leapNotional: isLeapDay ? leapNotional : null,
+          leapContracts: isLeapDay ? (leapPositions[leapPositions.length - 1]?.contracts ?? null) : null,
         });
       }
 
@@ -1562,7 +1581,7 @@ export default function DCASimulator() {
                         <td style={{ padding: "5px 10px", color: T.textMid, whiteSpace: "nowrap" }}>{row.date}</td>
                         <td style={{ padding: "5px 10px", color: isCcRow ? "#06b6d4" : isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isLeapRow ? "#a78bfa" : isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? T.accent : T.textDim, fontWeight: 500 }}>
                           {row.action}
-                          {isLeapRow && row.leapNotional && <span style={{ color: "#7c6ad6", fontSize: 10, display: "block" }}>{row.leapNotional.toFixed(4)} notional shares</span>}
+                          {isLeapRow && row.leapContracts && <span style={{ color: "#7c6ad6", fontSize: 10, display: "block" }}>{row.leapContracts} contract{row.leapContracts !== 1 ? "s" : ""} × 100 shares</span>}
                         </td>
                         <td style={{ padding: "5px 10px" }}>
                           <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>

@@ -607,7 +607,17 @@ export default function DCASimulator() {
       }
 
       const isSellDay = sellPct > 0;
-      if (isBuyDay || isSellDay || isLastDay) {
+
+      // Covered call — triggers at risk > 0.90 on any day (not just buy days)
+      let ccIncome = 0;
+      if (ccEnabled && d.risk >= 0.90 && totalAsset > 0 && !isLastDay) {
+        ccIncome = totalAsset * d.price * (ccPremiumPct / 100);
+        totalCcIncome += ccIncome;
+        ccCount++;
+      }
+      const isCcDay = ccIncome > 0;
+
+      if (isBuyDay || isSellDay || isLastDay || isCcDay) {
         const mult = tab === "dynamic" && !isLastDay ? getMultiplier(d.risk, riskBand, strategy) : 0;
         let action = "None";
         if (isCcDay && !isSellDay) {

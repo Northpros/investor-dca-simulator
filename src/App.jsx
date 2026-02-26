@@ -208,8 +208,9 @@ export default function DCASimulator() {
   // Fetch live price for a single portfolio ticker
   // Fetch all portfolio prices when switching to portfolio tab
   useEffect(() => {
-    if (tab === "portfolio" && portfolio.length > 0) {
+    if (tab === "portfolio") {
       portfolio.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); });
+      planned.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); });
     }
   }, [tab]);
 
@@ -1816,7 +1817,10 @@ export default function DCASimulator() {
                 <p style={{ fontSize: 11, color: T.textDim, margin: "4px 0 0" }}>Manual holdings · Live prices · Risk-based action signals</p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => portfolio.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); })} style={{
+                <button onClick={() => {
+                  portfolio.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); });
+                  planned.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); });
+                }} style={{
                   background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
                   color: T.textMid, padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace",
                 }}>⟳ Refresh Prices</button>

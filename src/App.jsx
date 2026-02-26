@@ -226,8 +226,49 @@ export default function DCASimulator() {
     setPortfolio(p => p.map(h => h.id === id ? { ...h, [field]: value } : h));
   }
 
-  // Store computed risk per portfolio ticker
+  // Store computed risk and CAGR per portfolio ticker
   const [portfolioRisk, setPortfolioRisk] = useState({});
+  const [portfolioCagr, setPortfolioCagr] = useState({});
+
+  function computeCagrFromPrices(prices, timestamps) {
+    // prices: array of closing prices, timestamps: array of ms timestamps
+    if (!prices || prices.length < 2) return null;
+    const now = prices[prices.length - 1];
+    const nowTs = timestamps[timestamps.length - 1];
+
+    function cagrOver(years) {
+      const targetTs = nowTs - years * 365.25 * 86400 * 1000;
+      // Find closest price to target date
+      let idx = 0;
+      for (let i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] >= targetTs) { idx = i; break; }
+      }
+      const past = prices[idx];
+      if (!past || past <= 0) return null;
+      const actualYears = (nowTs - timestamps[idx]) / (365.25 * 86400 * 1000);
+      if (actualYears < 0.5) return null;
+      return (Math.pow(now / past, 1 / actualYears) - 1) * 100;
+    }
+
+    const cagr1  = cagrOver(1);
+    const cagr3  = cagrOver(3);
+    const cagr5  = cagrOver(5);
+    const cagr10 = cagrOver(10);
+
+    // Forward estimates — mean reversion model
+    // 5yr forward = average of available historical CAGRs, capped at reasonable range
+    const historical = [cagr1, cagr3, cagr5, cagr10].filter(v => v != null);
+    const fwd5 = historical.length > 0
+      ? Math.min(35, Math.max(-5, historical.reduce((a, b) => a + b, 0) / historical.length * 0.75))
+      : null;
+    // Each decade decays by ~15% of the estimate (reversion to long-run mean ~7%)
+    const LONG_RUN = 7;
+    const fwd10 = fwd5 != null ? fwd5 + (LONG_RUN - fwd5) * 0.20 : null;
+    const fwd20 = fwd5 != null ? fwd5 + (LONG_RUN - fwd5) * 0.45 : null;
+    const fwd30 = fwd5 != null ? fwd5 + (LONG_RUN - fwd5) * 0.65 : null;
+
+    return { cagr1, cagr3, cagr5, cagr10, fwd5, fwd10, fwd20, fwd30 };
+  }
 
   async function fetchPortfolioPrice(ticker) {
     if (!ticker) return;
@@ -240,7 +281,6 @@ export default function DCASimulator() {
         const binanceJson = await binanceRes.json();
         if (binanceJson.price) {
           setPortfolioPrices(p => ({ ...p, [upper]: parseFloat(binanceJson.price) }));
-          // For crypto just fetch history for risk
           fetchPortfolioRisk(upper, "binance");
           setPortfolioLoading(p => ({ ...p, [upper]: false }));
           return;
@@ -255,13 +295,17 @@ export default function DCASimulator() {
         const result = json.chart?.result?.[0];
         const price = result?.meta?.regularMarketPrice;
         if (price) setPortfolioPrices(p => ({ ...p, [upper]: price }));
-        // Compute risk from history — stocks use -0.05 offset
         if (result?.timestamp && result?.indicators) {
           const closes = result.indicators.adjclose?.[0]?.adjclose ?? result.indicators.quote?.[0]?.close ?? [];
-          const prices = result.timestamp.map((ts, i) => closes[i]).filter(p => p != null && p > 0);
-          if (prices.length >= 100) {
-            const risk = computeRiskFromPrices(prices, false);
+          const timestamps = result.timestamp.map(t => t * 1000);
+          const prices = closes.map((p, i) => ({ p, t: timestamps[i] })).filter(x => x.p != null && x.p > 0);
+          const cleanPrices = prices.map(x => x.p);
+          const cleanTs = prices.map(x => x.t);
+          if (cleanPrices.length >= 100) {
+            const risk = computeRiskFromPrices(cleanPrices, false);
             setPortfolioRisk(r => ({ ...r, [upper]: risk }));
+            const cagr = computeCagrFromPrices(cleanPrices, cleanTs);
+            if (cagr) setPortfolioCagr(c => ({ ...c, [upper]: cagr }));
           }
         }
       }
@@ -278,9 +322,12 @@ export default function DCASimulator() {
         if (res.ok) {
           const candles = await res.json();
           const prices = candles.map(c => parseFloat(c[4])).filter(p => p > 0);
+          const timestamps = candles.map(c => c[0]);
           if (prices.length >= 100) {
-            const risk = computeRiskFromPrices(prices, true); // crypto offset -0.02
+            const risk = computeRiskFromPrices(prices, true);
             setPortfolioRisk(r => ({ ...r, [upper]: risk }));
+            const cagr = computeCagrFromPrices(prices, timestamps);
+            if (cagr) setPortfolioCagr(c => ({ ...c, [upper]: cagr }));
           }
         }
       } catch {}
@@ -1927,6 +1974,38 @@ export default function DCASimulator() {
                                 }}>×</button>
                               </td>
                             </tr>
+                            {/* CAGR sub-row */}
+                            {portfolioCagr[upper] && (
+                              <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.inputBg + "88" }}>
+                                <td colSpan={10} style={{ padding: "6px 10px 8px 20px" }}>
+                                  {(() => {
+                                    const c = portfolioCagr[upper];
+                                    const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
+                                    const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
+                                    return (
+                                      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+                                        <span style={{ fontSize: 10, color: T.textDim, minWidth: 80 }}>CAGR History</span>
+                                        {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
+                                          <div key={label} style={{ textAlign: "center" }}>
+                                            <div style={{ fontSize: 9, color: T.textDim }}>{label}</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: col(val) }}>{fmt(val)}</div>
+                                          </div>
+                                        ))}
+                                        <div style={{ width: 1, height: 28, background: T.border2, margin: "0 4px" }} />
+                                        <span style={{ fontSize: 10, color: T.textDim, minWidth: 100 }}>Est. Forward</span>
+                                        {[["5yr est", c.fwd5], ["10yr est", c.fwd10], ["20yr est", c.fwd20], ["30yr est", c.fwd30]].map(([label, val]) => (
+                                          <div key={label} style={{ textAlign: "center" }}>
+                                            <div style={{ fontSize: 9, color: T.textDim }}>{label}</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
+                                          </div>
+                                        ))}
+                                        <span style={{ fontSize: 9, color: T.textDim, fontStyle: "italic", marginLeft: 4 }}>est. = mean reversion model</span>
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+                              </tr>
+                            )}
                           );
                         });
                       })()}
@@ -2094,6 +2173,38 @@ export default function DCASimulator() {
                                       }}>×</button>
                                     </td>
                                   </tr>
+                                  {/* CAGR sub-row */}
+                                  {portfolioCagr[upper] && (
+                                    <tr style={{ borderBottom: `1px solid ${T.border}`, background: "#1a0a2e88" }}>
+                                      <td colSpan={10} style={{ padding: "6px 10px 8px 20px" }}>
+                                        {(() => {
+                                          const c = portfolioCagr[upper];
+                                          const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
+                                          const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
+                                          return (
+                                            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+                                              <span style={{ fontSize: 10, color: T.textDim, minWidth: 80 }}>CAGR History</span>
+                                              {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
+                                                <div key={label} style={{ textAlign: "center" }}>
+                                                  <div style={{ fontSize: 9, color: T.textDim }}>{label}</div>
+                                                  <div style={{ fontSize: 12, fontWeight: 700, color: col(val) }}>{fmt(val)}</div>
+                                                </div>
+                                              ))}
+                                              <div style={{ width: 1, height: 28, background: T.border2, margin: "0 4px" }} />
+                                              <span style={{ fontSize: 10, color: T.textDim, minWidth: 100 }}>Est. Forward</span>
+                                              {[["5yr est", c.fwd5], ["10yr est", c.fwd10], ["20yr est", c.fwd20], ["30yr est", c.fwd30]].map(([label, val]) => (
+                                                <div key={label} style={{ textAlign: "center" }}>
+                                                  <div style={{ fontSize: 9, color: T.textDim }}>{label}</div>
+                                                  <div style={{ fontSize: 12, fontWeight: 700, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
+                                                </div>
+                                              ))}
+                                              <span style={{ fontSize: 9, color: T.textDim, fontStyle: "italic", marginLeft: 4 }}>est. = mean reversion model</span>
+                                            </div>
+                                          );
+                                        })()}
+                                      </td>
+                                    </tr>
+                                  )}
                                 );
                               });
                             })()}

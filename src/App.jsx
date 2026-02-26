@@ -1989,7 +1989,7 @@ export default function DCASimulator() {
                                         {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
                                           <div key={label} style={{ textAlign: "center" }}>
                                             <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                            <div style={{ fontSize: 10, fontWeight: 400, color: col(val) }}>{fmt(val)}</div>
+                                            <div style={{ fontSize: 10, fontWeight: 400, color: T.textMid }}>{fmt(val)}</div>
                                           </div>
                                         ))}
                                         <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap", marginLeft: 12 }}>Est. Fwd</span>
@@ -2196,7 +2196,7 @@ export default function DCASimulator() {
                                               {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
                                                 <div key={label} style={{ textAlign: "center" }}>
                                                   <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                                  <div style={{ fontSize: 10, fontWeight: 400, color: col(val) }}>{fmt(val)}</div>
+                                                  <div style={{ fontSize: 10, fontWeight: 400, color: T.textMid }}>{fmt(val)}</div>
                                                 </div>
                                               ))}
                                               <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap", marginLeft: 12 }}>Est. Fwd</span>

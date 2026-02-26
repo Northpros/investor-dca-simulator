@@ -185,6 +185,89 @@ export default function DCASimulator() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  // ── Portfolio Tracker ─────────────────────────────────────────────────────
+  const PORTFOLIO_KEY = "reversion_alpha_portfolio_v1";
+  const [portfolio, setPortfolio] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PORTFOLIO_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [portfolioPrices, setPortfolioPrices] = useState({});
+  const [portfolioLoading, setPortfolioLoading] = useState({});
+
+  // Save portfolio to localStorage whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio)); } catch {}
+  }, [portfolio]);
+
+  // Fetch live price for a single portfolio ticker
+  async function fetchPortfolioPrice(ticker) {
+    setPortfolioLoading(p => ({ ...p, [ticker]: true }));
+    try {
+      const upper = ticker.toUpperCase();
+      // Try Binance first for crypto
+      const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${upper}USDT`);
+      if (binanceRes.ok) {
+        const binanceJson = await binanceRes.json();
+        if (binanceJson.price) {
+          setPortfolioPrices(p => ({ ...p, [ticker]: parseFloat(binanceJson.price) }));
+          setPortfolioLoading(p => ({ ...p, [ticker]: false }));
+          return;
+        }
+      }
+    } catch {}
+    // Fall back to Yahoo via Vercel proxy
+    try {
+      const res = await fetch(`/api/yahoo/${ticker.toUpperCase()}?_=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price) setPortfolioPrices(p => ({ ...p, [ticker]: price }));
+      }
+    } catch {}
+    setPortfolioLoading(p => ({ ...p, [ticker]: false }));
+  }
+
+  // Fetch all portfolio prices when switching to portfolio tab
+  useEffect(() => {
+    if (tab === "portfolio" && portfolio.length > 0) {
+      portfolio.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); });
+    }
+  }, [tab]);
+
+  function addHolding() {
+    setPortfolio(p => [...p, { id: Date.now(), ticker: "", shares: "", entryPrice: "" }]);
+  }
+
+  function removeHolding(id) {
+    setPortfolio(p => p.filter(h => h.id !== id));
+  }
+
+  function updateHolding(id, field, value) {
+    setPortfolio(p => p.map(h => h.id === id ? { ...h, [field]: value } : h));
+  }
+
+  function getPortfolioAction(ticker) {
+    // Use the risk model from current dailyData for this ticker if it matches
+    // Otherwise return generic guidance based on common risk logic
+    const upper = ticker.toUpperCase();
+    const price = portfolioPrices[upper] ?? portfolioPrices[ticker];
+    if (!price) return { label: "—", color: "#888" };
+    // Build a mini MA from portfolio prices — use current simulator data if ticker matches
+    let risk = null;
+    if (upper === displayTicker.toUpperCase() && dailyData.length > 0) {
+      risk = dailyData[dailyData.length - 1]?.risk ?? null;
+      if (riskOffset) risk = Math.min(1, Math.max(0, risk + riskOffset));
+    }
+    if (risk === null) return { label: "No risk data", color: "#888" };
+    if (risk >= 0.90) return { label: "Sell 10%", color: "#f59e0b" };
+    if (risk >= riskBand.max) return { label: "Hold", color: "#94a3b8" };
+    const mult = getMultiplier(risk, riskBand, strategy);
+    if (mult === 0) return { label: "Hold", color: "#94a3b8" };
+    return { label: `Buy ${mult}x`, color: "#22c55e" };
+  }
+
   // Fetch live USD→CAD rate once on mount
   useEffect(() => {
     fetch("https://api.frankfurter.app/latest?from=USD&to=CAD")
@@ -952,6 +1035,7 @@ export default function DCASimulator() {
           <button style={tabStyle("equal")} onClick={() => setTab("equal")}>Equal $ DCA</button>
           <button style={tabStyle("lump")} onClick={() => setTab("lump")}>Lump $um</button>
           <button style={tabStyle("dynamic")} onClick={() => setTab("dynamic")}>Precision DCA</button>
+          <button style={{...tabStyle("portfolio"), marginLeft: "auto"}} onClick={() => setTab("portfolio")}>📊 Portfolio Tracker</button>
         </div>
 
         {/* Company Name Banner */}
@@ -1663,6 +1747,164 @@ export default function DCASimulator() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Portfolio Tracker Tab */}
+        {tab === "portfolio" && (
+          <div style={{ padding: "24px 20px" }}>
+            {/* Header row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700, margin: 0, color: T.text }}>Portfolio Tracker</h2>
+                <p style={{ fontSize: 11, color: T.textDim, margin: "4px 0 0" }}>Manual holdings · Live prices · Risk-based action signals</p>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => portfolio.forEach(h => { if (h.ticker) fetchPortfolioPrice(h.ticker); })} style={{
+                  background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
+                  color: T.textMid, padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace",
+                }}>⟳ Refresh Prices</button>
+                <button onClick={addHolding} style={{
+                  background: T.accent, border: "none", borderRadius: 6,
+                  color: "#fff", padding: "7px 16px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace", fontWeight: 600,
+                }}>+ Add Asset</button>
+              </div>
+            </div>
+
+            {portfolio.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: T.textDim }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+                <div style={{ fontSize: 14, color: T.textMid, marginBottom: 6 }}>No holdings yet</div>
+                <div style={{ fontSize: 11 }}>Click <strong style={{ color: T.accent }}>+ Add Asset</strong> to start tracking your portfolio</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                        {["Ticker", "Name", "Live Price", "Shares", "Entry Price", "Market Value", "Gain / Loss", "% of Portfolio", "Signal", ""].map(h => (
+                          <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: T.textDim, fontWeight: 400, whiteSpace: "nowrap", fontSize: 11 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const totalPortfolioValue = portfolio.reduce((sum, h) => {
+                          const price = portfolioPrices[h.ticker?.toUpperCase()] ?? portfolioPrices[h.ticker] ?? 0;
+                          return sum + (price * (parseFloat(h.shares) || 0));
+                        }, 0);
+                        return portfolio.map((h) => {
+                          const upper = h.ticker?.toUpperCase() ?? "";
+                          const livePrice = portfolioPrices[upper] ?? portfolioPrices[h.ticker] ?? null;
+                          const shares = parseFloat(h.shares) || 0;
+                          const entryPrice = parseFloat(h.entryPrice) || 0;
+                          const marketValue = livePrice ? livePrice * shares : null;
+                          const costBasis = entryPrice * shares;
+                          const gainLoss = marketValue != null ? marketValue - costBasis : null;
+                          const gainPct = costBasis > 0 && gainLoss != null ? ((gainLoss / costBasis) * 100).toFixed(2) : null;
+                          const portfolioPct = totalPortfolioValue > 0 && marketValue ? ((marketValue / totalPortfolioValue) * 100).toFixed(1) : null;
+                          const action = getPortfolioAction(h.ticker);
+                          const isLoading = portfolioLoading[upper] || portfolioLoading[h.ticker];
+                          const knownName = KNOWN_NAMES[upper] ?? "";
+                          return (
+                            <tr key={h.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input value={h.ticker} onChange={e => updateHolding(h.id, "ticker", e.target.value.toUpperCase())}
+                                  onBlur={e => { if (e.target.value) fetchPortfolioPrice(e.target.value); }}
+                                  onKeyDown={e => { if (e.key === "Enter" && h.ticker) fetchPortfolioPrice(h.ticker); }}
+                                  placeholder="SPY" style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: T.accent }} />
+                              </td>
+                              <td style={{ padding: "6px 10px", color: T.textMid, fontSize: 11, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {knownName || upper || "—"}
+                              </td>
+                              <td style={{ padding: "6px 10px", color: T.text, whiteSpace: "nowrap" }}>
+                                {isLoading ? <span style={{ color: T.textDim }}>⟳</span> : livePrice ? fmtC(livePrice) : <span style={{ color: T.textDim }}>—</span>}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input type="number" value={h.shares} onChange={e => updateHolding(h.id, "shares", e.target.value)}
+                                  placeholder="100" style={{ ...inputStyle, width: 90, fontSize: 12 }} />
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <input type="number" value={h.entryPrice} onChange={e => updateHolding(h.id, "entryPrice", e.target.value)}
+                                  placeholder="450.00" style={{ ...inputStyle, width: 100, fontSize: 12 }} />
+                              </td>
+                              <td style={{ padding: "6px 10px", color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>
+                                {marketValue != null ? fmtC(marketValue) : <span style={{ color: T.textDim }}>—</span>}
+                              </td>
+                              <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                {gainLoss != null ? (
+                                  <div>
+                                    <span style={{ color: gainLoss >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{gainLoss >= 0 ? "+" : ""}{fmtC(gainLoss)}</span>
+                                    <span style={{ display: "block", fontSize: 10, color: gainLoss >= 0 ? "#22c55e" : "#ef4444" }}>{gainLoss >= 0 ? "▲" : "▼"} {Math.abs(gainPct)}%</span>
+                                  </div>
+                                ) : <span style={{ color: T.textDim }}>—</span>}
+                              </td>
+                              <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                {portfolioPct != null ? (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <div style={{ width: 50, height: 4, background: T.border2, borderRadius: 2 }}>
+                                      <div style={{ width: `${Math.min(100, portfolioPct)}%`, height: "100%", background: T.accent, borderRadius: 2 }} />
+                                    </div>
+                                    <span style={{ color: T.textMid }}>{portfolioPct}%</span>
+                                  </div>
+                                ) : <span style={{ color: T.textDim }}>—</span>}
+                              </td>
+                              <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                <span style={{ color: action.color, background: action.color + "22", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                                  {action.label}
+                                </span>
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <button onClick={() => removeHolding(h.id)} style={{
+                                  background: "transparent", border: "none", color: T.textDim,
+                                  cursor: "pointer", fontSize: 16, padding: "2px 6px", borderRadius: 4,
+                                }}>×</button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary Footer */}
+                {(() => {
+                  const totalValue = portfolio.reduce((sum, h) => {
+                    const price = portfolioPrices[h.ticker?.toUpperCase()] ?? portfolioPrices[h.ticker] ?? 0;
+                    return sum + (price * (parseFloat(h.shares) || 0));
+                  }, 0);
+                  const totalCost = portfolio.reduce((sum, h) => sum + ((parseFloat(h.entryPrice) || 0) * (parseFloat(h.shares) || 0)), 0);
+                  const totalGain = totalValue - totalCost;
+                  const totalGainPct = totalCost > 0 ? ((totalGain / totalCost) * 100).toFixed(2) : null;
+                  if (totalValue === 0) return null;
+                  return (
+                    <div style={{ marginTop: 20, padding: "16px 20px", background: T.inputBg, borderRadius: 8, border: `1px solid ${T.border2}`, display: "flex", gap: 32, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Total Value</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtC(totalValue)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Total Cost Basis</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: T.textMid, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtC(totalCost)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Total Gain / Loss</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: totalGain >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
+                          {totalGain >= 0 ? "+" : ""}{fmtC(totalGain)}
+                          {totalGainPct && <span style={{ fontSize: 13, marginLeft: 8 }}>{totalGain >= 0 ? "▲" : "▼"} {Math.abs(totalGainPct)}%</span>}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Positions</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: T.textMid, fontFamily: "'Space Grotesk', sans-serif" }}>{portfolio.filter(h => h.ticker).length}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
         )}
 

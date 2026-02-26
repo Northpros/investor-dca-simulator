@@ -1923,7 +1923,7 @@ export default function DCASimulator() {
                                   onKeyDown={e => { if (e.key === "Enter" && h.ticker) fetchPortfolioPrice(h.ticker); }}
                                   placeholder="SPY" style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: T.accent }} />
                               </td>
-                              <td style={{ padding: "6px 10px", color: T.text, fontSize: 11, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              <td style={{ padding: "6px 10px", color: T.text, fontSize: 12, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {knownName || upper || "—"}
                               </td>
                               <td style={{ padding: "6px 10px", color: T.text, whiteSpace: "nowrap" }}>
@@ -2121,7 +2121,7 @@ export default function DCASimulator() {
                                         placeholder="TSLA"
                                         style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: "#a78bfa" }} />
                                     </td>
-                                    <td style={{ padding: "6px 10px", color: T.text, fontSize: 11, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    <td style={{ padding: "6px 10px", color: T.text, fontSize: 12, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {knownName || upper || "—"}
                                     </td>
                                     <td style={{ padding: "6px 10px", color: T.text, whiteSpace: "nowrap" }}>

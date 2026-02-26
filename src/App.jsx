@@ -1915,7 +1915,8 @@ export default function DCASimulator() {
                           const isLoading = portfolioLoading[upper] || portfolioLoading[h.ticker];
                           const knownName = KNOWN_NAMES[upper] ?? "";
                           return (
-                            <tr key={h.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                            <React.Fragment key={h.id}>
+                            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                               <td style={{ padding: "6px 10px" }}>
                                 <input value={h.ticker} onChange={e => updateHolding(h.id, "ticker", e.target.value.toUpperCase())}
                                   onBlur={e => { if (e.target.value) fetchPortfolioPrice(e.target.value); }}
@@ -2017,6 +2018,7 @@ export default function DCASimulator() {
                                 </td>
                               </tr>
                             )}
+                            </React.Fragment>
                           );
                         });
                       })()}
@@ -2114,7 +2116,8 @@ export default function DCASimulator() {
                                 const isLoading = portfolioLoading[upper];
                                 const knownName = KNOWN_NAMES[upper] ?? "";
                                 return (
-                                  <tr key={h.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                                  <React.Fragment key={h.id}>
+                                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                                     <td style={{ padding: "6px 10px" }}>
                                       <input value={h.ticker}
                                         onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, ticker: e.target.value.toUpperCase() } : x))}
@@ -2227,6 +2230,7 @@ export default function DCASimulator() {
                                       </td>
                                     </tr>
                                   )}
+                                  </React.Fragment>
                                 );
                               });
                             })()}

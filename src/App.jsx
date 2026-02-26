@@ -202,33 +202,6 @@ export default function DCASimulator() {
   }, [portfolio]);
 
   // Fetch live price for a single portfolio ticker
-  async function fetchPortfolioPrice(ticker) {
-    setPortfolioLoading(p => ({ ...p, [ticker]: true }));
-    try {
-      const upper = ticker.toUpperCase();
-      // Try Binance first for crypto
-      const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${upper}USDT`);
-      if (binanceRes.ok) {
-        const binanceJson = await binanceRes.json();
-        if (binanceJson.price) {
-          setPortfolioPrices(p => ({ ...p, [ticker]: parseFloat(binanceJson.price) }));
-          setPortfolioLoading(p => ({ ...p, [ticker]: false }));
-          return;
-        }
-      }
-    } catch {}
-    // Fall back to Yahoo via Vercel proxy
-    try {
-      const res = await fetch(`/api/yahoo/${ticker.toUpperCase()}?_=${Date.now()}`);
-      if (res.ok) {
-        const json = await res.json();
-        const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price) setPortfolioPrices(p => ({ ...p, [ticker]: price }));
-      }
-    } catch {}
-    setPortfolioLoading(p => ({ ...p, [ticker]: false }));
-  }
-
   // Fetch all portfolio prices when switching to portfolio tab
   useEffect(() => {
     if (tab === "portfolio" && portfolio.length > 0) {
@@ -248,19 +221,87 @@ export default function DCASimulator() {
     setPortfolio(p => p.map(h => h.id === id ? { ...h, [field]: value } : h));
   }
 
-  function getPortfolioAction(ticker) {
-    // Use the risk model from current dailyData for this ticker if it matches
-    // Otherwise return generic guidance based on common risk logic
+  // Store computed risk per portfolio ticker
+  const [portfolioRisk, setPortfolioRisk] = useState({});
+
+  async function fetchPortfolioPrice(ticker) {
+    if (!ticker) return;
     const upper = ticker.toUpperCase();
-    const price = portfolioPrices[upper] ?? portfolioPrices[ticker];
-    if (!price) return { label: "—", color: "#888" };
-    // Build a mini MA from portfolio prices — use current simulator data if ticker matches
-    let risk = null;
-    if (upper === displayTicker.toUpperCase() && dailyData.length > 0) {
-      risk = dailyData[dailyData.length - 1]?.risk ?? null;
-      if (riskOffset) risk = Math.min(1, Math.max(0, risk + riskOffset));
+    setPortfolioLoading(p => ({ ...p, [upper]: true }));
+    // Try Binance first for crypto
+    try {
+      const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${upper}USDT`);
+      if (binanceRes.ok) {
+        const binanceJson = await binanceRes.json();
+        if (binanceJson.price) {
+          setPortfolioPrices(p => ({ ...p, [upper]: parseFloat(binanceJson.price) }));
+          // For crypto just fetch history for risk
+          fetchPortfolioRisk(upper, "binance");
+          setPortfolioLoading(p => ({ ...p, [upper]: false }));
+          return;
+        }
+      }
+    } catch {}
+    // Yahoo Finance via proxy
+    try {
+      const res = await fetch(`/api/yahoo/${upper}?_=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        const result = json.chart?.result?.[0];
+        const price = result?.meta?.regularMarketPrice;
+        if (price) setPortfolioPrices(p => ({ ...p, [upper]: price }));
+        // Compute risk from history
+        if (result?.timestamp && result?.indicators) {
+          const closes = result.indicators.adjclose?.[0]?.adjclose ?? result.indicators.quote?.[0]?.close ?? [];
+          const prices = result.timestamp.map((ts, i) => closes[i]).filter(p => p != null && p > 0);
+          if (prices.length >= 500) {
+            const risk = computeRiskFromPrices(prices);
+            setPortfolioRisk(r => ({ ...r, [upper]: risk }));
+          }
+        }
+      }
+    } catch {}
+    setPortfolioLoading(p => ({ ...p, [upper]: false }));
+  }
+
+  async function fetchPortfolioRisk(ticker, type) {
+    const upper = ticker.toUpperCase();
+    if (type === "binance") {
+      try {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${upper}USDT&interval=1d&limit=1000`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const candles = await res.json();
+          const prices = candles.map(c => parseFloat(c[4])).filter(p => p > 0);
+          if (prices.length >= 100) {
+            const risk = computeRiskFromPrices(prices);
+            setPortfolioRisk(r => ({ ...r, [upper]: risk }));
+          }
+        }
+      } catch {}
     }
-    if (risk === null) return { label: "No risk data", color: "#888" };
+  }
+
+  function computeRiskFromPrices(prices) {
+    // Same 500-day geometric MA model used in the simulator
+    const window = Math.min(500, prices.length);
+    const slice = prices.slice(-window);
+    const logPrices = slice.map(p => Math.log(p));
+    const ma = logPrices.reduce((s, v) => s + v, 0) / logPrices.length;
+    const currentLog = Math.log(prices[prices.length - 1]);
+    // Risk = how far above the MA we are, normalized 0-1
+    const std = Math.sqrt(logPrices.reduce((s, v) => s + (v - ma) ** 2, 0) / logPrices.length);
+    if (std === 0) return 0.5;
+    const z = (currentLog - ma) / std;
+    // Sigmoid-style mapping: z=0 → 0.5, z=2 → ~0.88, z=-2 → ~0.12
+    return Math.min(1, Math.max(0, 1 / (1 + Math.exp(-z * 1.2))));
+  }
+
+  function getPortfolioAction(ticker) {
+    const upper = ticker?.toUpperCase();
+    if (!upper) return { label: "—", color: "#888" };
+    const risk = portfolioRisk[upper] ?? null;
+    if (risk === null) return { label: "Loading...", color: T.textDim };
     if (risk >= 0.90) return { label: "Sell 10%", color: "#f59e0b" };
     if (risk >= riskBand.max) return { label: "Hold", color: "#94a3b8" };
     const mult = getMultiplier(risk, riskBand, strategy);
@@ -1039,6 +1080,7 @@ export default function DCASimulator() {
         </div>
 
         {/* Company Name Banner */}
+        {tab !== "portfolio" && (
         <div style={{ padding: "10px 20px 0", borderBottom: "none" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: T.accent, letterSpacing: -0.5 }}>
@@ -1057,8 +1099,10 @@ export default function DCASimulator() {
             )}
           </div>
         </div>
+        )}
 
-        {/* Controls */}
+        {/* Controls — hidden on portfolio tab */}
+        {tab !== "portfolio" && (
         <div style={{ padding: "12px 20px 16px", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start", rowGap: 10 }}>
             <div>
@@ -1328,6 +1372,10 @@ export default function DCASimulator() {
             </>)}
           </div>
         </div>
+        )} {/* end tab !== portfolio controls */}
+
+        {/* Simulator content — hidden on portfolio tab */}
+        {tab !== "portfolio" && (<>
 
         {/* Loading */}
         {loading && (
@@ -1749,6 +1797,8 @@ export default function DCASimulator() {
             </div>
           </div>
         )}
+
+        </>) } {/* end tab !== portfolio simulator content */}
 
         {/* Portfolio Tracker Tab */}
         {tab === "portfolio" && (

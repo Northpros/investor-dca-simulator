@@ -1974,11 +1974,11 @@ export default function DCASimulator() {
                                 }}>×</button>
                               </td>
                             </tr>
-                            {/* CAGR sub-row */}
-                            {portfolioCagr[upper] && (
+                            {/* CAGR row - always shown, loading state if data not ready */}
+                            {upper && (
                               <tr style={{ borderBottom: `2px solid ${T.border}` }}>
                                 <td colSpan={10} style={{ padding: "0", background: "transparent" }}>
-                                  {(() => {
+                                  {portfolioCagr[upper] ? (() => {
                                     const c = portfolioCagr[upper];
                                     const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
                                     const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
@@ -2006,7 +2006,14 @@ export default function DCASimulator() {
                                         </div>
                                       </div>
                                     );
-                                  })()}
+                                  })() : (
+                                    <div style={{ background: darkMode ? "#111130" : "#e8e8ff", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, minHeight: 48 }}>
+                                      <span style={{ fontSize: 10, color: T.textDim }}>📈 CAGR</span>
+                                      <span style={{ fontSize: 11, color: T.textDim, fontStyle: "italic" }}>
+                                        {portfolioLoading[upper] ? "⟳ Loading price history..." : "Hit ⟳ Refresh Prices to load CAGR data"}
+                                      </span>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
@@ -2177,11 +2184,11 @@ export default function DCASimulator() {
                                       }}>×</button>
                                     </td>
                                   </tr>
-                                  {/* CAGR sub-row */}
-                                  {portfolioCagr[upper] && (
+                                  {/* CAGR row - always shown */}
+                                  {upper && (
                                     <tr style={{ borderBottom: `2px solid ${T.border}` }}>
                                       <td colSpan={10} style={{ padding: "0", background: "transparent" }}>
-                                        {(() => {
+                                        {portfolioCagr[upper] ? (() => {
                                           const c = portfolioCagr[upper];
                                           const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
                                           const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
@@ -2209,7 +2216,14 @@ export default function DCASimulator() {
                                               </div>
                                             </div>
                                           );
-                                        })()}
+                                        })() : (
+                                          <div style={{ background: darkMode ? "#1a0a2e" : "#ece0ff", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, minHeight: 48 }}>
+                                            <span style={{ fontSize: 10, color: T.textDim }}>📈 CAGR</span>
+                                            <span style={{ fontSize: 11, color: T.textDim, fontStyle: "italic" }}>
+                                              {portfolioLoading[upper] ? "⟳ Loading price history..." : "Hit ⟳ Refresh Prices to load CAGR data"}
+                                            </span>
+                                          </div>
+                                        )}
                                       </td>
                                     </tr>
                                   )}

@@ -1982,21 +1982,21 @@ export default function DCASimulator() {
                                   {portfolioCagr[upper] ? (() => {
                                     const c = portfolioCagr[upper];
                                     const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
-                                    const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
+                                    const col = v => v == null ? T.textDim : v >= 12 ? "#86efac" : v >= 7 ? "#93c5fd" : v >= 0 ? "#fcd34d" : "#fca5a5";
                                     return (
                                       <div style={{ display: "flex", width: "100%", alignItems: "center", padding: "6px 16px", gap: 20, flexWrap: "wrap" }}>
                                         <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap" }}>Hist. CAGR</span>
                                         {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
                                           <div key={label} style={{ textAlign: "center" }}>
                                             <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                            <div style={{ fontSize: 10, fontWeight: 600, color: col(val) }}>{fmt(val)}</div>
+                                            <div style={{ fontSize: 10, fontWeight: 400, color: col(val) }}>{fmt(val)}</div>
                                           </div>
                                         ))}
                                         <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap", marginLeft: 12 }}>Est. Fwd</span>
                                         {[["5yr", c.fwd5], ["10yr", c.fwd10], ["20yr", c.fwd20], ["30yr", c.fwd30]].map(([label, val]) => (
                                           <div key={label} style={{ textAlign: "center" }}>
                                             <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                            <div style={{ fontSize: 10, fontWeight: 600, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
+                                            <div style={{ fontSize: 10, fontWeight: 400, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
                                           </div>
                                         ))}
                                         <span style={{ fontSize: 8, color: T.textDim, fontStyle: "italic", marginLeft: "auto" }}>mean reversion · not financial advice</span>
@@ -2189,21 +2189,21 @@ export default function DCASimulator() {
                                         {portfolioCagr[upper] ? (() => {
                                           const c = portfolioCagr[upper];
                                           const fmt = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
-                                          const col = v => v == null ? T.textDim : v >= 12 ? "#22c55e" : v >= 7 ? "#60a5fa" : v >= 0 ? "#f59e0b" : "#ef4444";
+                                          const col = v => v == null ? T.textDim : v >= 12 ? "#86efac" : v >= 7 ? "#93c5fd" : v >= 0 ? "#fcd34d" : "#fca5a5";
                                           return (
                                             <div style={{ display: "flex", width: "100%", alignItems: "center", padding: "6px 16px", gap: 20, flexWrap: "wrap" }}>
                                               <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap" }}>Hist. CAGR</span>
                                               {[["1yr", c.cagr1], ["3yr", c.cagr3], ["5yr", c.cagr5], ["10yr", c.cagr10]].map(([label, val]) => (
                                                 <div key={label} style={{ textAlign: "center" }}>
                                                   <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                                  <div style={{ fontSize: 10, fontWeight: 600, color: col(val) }}>{fmt(val)}</div>
+                                                  <div style={{ fontSize: 10, fontWeight: 400, color: col(val) }}>{fmt(val)}</div>
                                                 </div>
                                               ))}
                                               <span style={{ fontSize: 9, color: T.textDim, whiteSpace: "nowrap", marginLeft: 12 }}>Est. Fwd</span>
                                               {[["5yr", c.fwd5], ["10yr", c.fwd10], ["20yr", c.fwd20], ["30yr", c.fwd30]].map(([label, val]) => (
                                                 <div key={label} style={{ textAlign: "center" }}>
                                                   <div style={{ fontSize: 8, color: T.textDim }}>{label}</div>
-                                                  <div style={{ fontSize: 10, fontWeight: 600, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
+                                                  <div style={{ fontSize: 10, fontWeight: 400, color: col(val), fontStyle: "italic" }}>{fmt(val)}</div>
                                                 </div>
                                               ))}
                                               <span style={{ fontSize: 8, color: T.textDim, fontStyle: "italic", marginLeft: "auto" }}>mean reversion · not financial advice</span>

@@ -187,11 +187,12 @@ export default function DCASimulator() {
 
   // ── Portfolio Tracker ─────────────────────────────────────────────────────
   const PORTFOLIO_KEY = "reversion_alpha_portfolio_v1";
+  const PLANNED_KEY = "reversion_alpha_planned_v1";
   const [portfolio, setPortfolio] = useState(() => {
-    try {
-      const saved = localStorage.getItem(PORTFOLIO_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    try { const s = localStorage.getItem(PORTFOLIO_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [planned, setPlanned] = useState(() => {
+    try { const s = localStorage.getItem(PLANNED_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
   });
   const [portfolioPrices, setPortfolioPrices] = useState({});
   const [portfolioLoading, setPortfolioLoading] = useState({});
@@ -200,6 +201,9 @@ export default function DCASimulator() {
   useEffect(() => {
     try { localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio)); } catch {}
   }, [portfolio]);
+  useEffect(() => {
+    try { localStorage.setItem(PLANNED_KEY, JSON.stringify(planned)); } catch {}
+  }, [planned]);
 
   // Fetch live price for a single portfolio ticker
   // Fetch all portfolio prices when switching to portfolio tab
@@ -250,12 +254,12 @@ export default function DCASimulator() {
         const result = json.chart?.result?.[0];
         const price = result?.meta?.regularMarketPrice;
         if (price) setPortfolioPrices(p => ({ ...p, [upper]: price }));
-        // Compute risk from history
+        // Compute risk from history — stocks use -0.05 offset
         if (result?.timestamp && result?.indicators) {
           const closes = result.indicators.adjclose?.[0]?.adjclose ?? result.indicators.quote?.[0]?.close ?? [];
           const prices = result.timestamp.map((ts, i) => closes[i]).filter(p => p != null && p > 0);
-          if (prices.length >= 500) {
-            const risk = computeRiskFromPrices(prices);
+          if (prices.length >= 100) {
+            const risk = computeRiskFromPrices(prices, false);
             setPortfolioRisk(r => ({ ...r, [upper]: risk }));
           }
         }
@@ -274,7 +278,7 @@ export default function DCASimulator() {
           const candles = await res.json();
           const prices = candles.map(c => parseFloat(c[4])).filter(p => p > 0);
           if (prices.length >= 100) {
-            const risk = computeRiskFromPrices(prices);
+            const risk = computeRiskFromPrices(prices, true); // crypto offset -0.02
             setPortfolioRisk(r => ({ ...r, [upper]: risk }));
           }
         }
@@ -282,7 +286,7 @@ export default function DCASimulator() {
     }
   }
 
-  function computeRiskFromPrices(prices) {
+  function computeRiskFromPrices(prices, isCrypto = false) {
     // Exact same 500-day geometric MA + calcRisk formula as the simulator
     const WINDOW = 500;
     let logSum = 0;
@@ -294,7 +298,9 @@ export default function DCASimulator() {
       const logRatio = Math.log10(price / ma);
       risk = Math.min(1, Math.max(0, (logRatio + 0.4647) / 1.0013));
     });
-    return risk;
+    // Apply same default offset as simulator: crypto -0.02, stocks -0.05
+    const offset = isCrypto ? -0.02 : -0.05;
+    return Math.min(1, Math.max(0, risk + offset));
   }
 
   function getPortfolioAction(ticker) {
@@ -1958,6 +1964,190 @@ export default function DCASimulator() {
                     </div>
                   );
                 })()}
+
+                {/* ── Planned Portfolio ─────────────────────────────────── */}
+                <div style={{ marginTop: 32 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <div>
+                      <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 700, margin: 0, color: T.text }}>
+                        Planned Portfolio
+                      </h3>
+                      <p style={{ fontSize: 11, color: T.textDim, margin: "3px 0 0" }}>Target positions · Compare vs actual holdings</p>
+                    </div>
+                    <button onClick={() => setPlanned(p => [...p, { id: Date.now(), ticker: "", shares: "", entryPrice: "" }])} style={{
+                      background: "#7c3aed", border: "none", borderRadius: 6,
+                      color: "#fff", padding: "7px 16px", cursor: "pointer", fontSize: 12,
+                      fontFamily: "'DM Mono', monospace", fontWeight: 600,
+                    }}>+ Add Target</button>
+                  </div>
+
+                  {planned.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 0", color: T.textDim, border: `1px dashed ${T.border2}`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 11 }}>Click <strong style={{ color: "#a78bfa" }}>+ Add Target</strong> to define your planned positions</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                          <thead>
+                            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                              {["Ticker", "Name", "Live Price", "Target Shares", "Target Entry", "Target Value", "vs Actual", "Target %", "Signal", ""].map(h => (
+                                <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#a78bfa", fontWeight: 400, whiteSpace: "nowrap", fontSize: 11 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const totalPlannedValue = planned.reduce((sum, h) => {
+                                const price = portfolioPrices[h.ticker?.toUpperCase()] ?? 0;
+                                return sum + (price * (parseFloat(h.shares) || 0));
+                              }, 0);
+                              return planned.map((h) => {
+                                const upper = h.ticker?.toUpperCase() ?? "";
+                                const livePrice = portfolioPrices[upper] ?? null;
+                                const targetShares = parseFloat(h.shares) || 0;
+                                const targetEntry = parseFloat(h.entryPrice) || 0;
+                                const targetValue = livePrice ? livePrice * targetShares : null;
+                                const targetCost = targetEntry * targetShares;
+                                // Find matching actual holding
+                                const actual = portfolio.find(a => a.ticker?.toUpperCase() === upper);
+                                const actualShares = parseFloat(actual?.shares) || 0;
+                                const actualValue = livePrice ? livePrice * actualShares : null;
+                                const diffShares = targetShares - actualShares;
+                                const diffValue = (targetValue != null && actualValue != null) ? targetValue - actualValue : null;
+                                const plannedPct = totalPlannedValue > 0 && targetValue ? ((targetValue / totalPlannedValue) * 100).toFixed(1) : null;
+                                const action = getPortfolioAction(h.ticker);
+                                const isLoading = portfolioLoading[upper];
+                                const knownName = KNOWN_NAMES[upper] ?? "";
+                                return (
+                                  <tr key={h.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                                    <td style={{ padding: "6px 10px" }}>
+                                      <input value={h.ticker}
+                                        onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, ticker: e.target.value.toUpperCase() } : x))}
+                                        onBlur={e => { if (e.target.value) fetchPortfolioPrice(e.target.value); }}
+                                        onKeyDown={e => { if (e.key === "Enter" && h.ticker) fetchPortfolioPrice(h.ticker); }}
+                                        placeholder="TSLA"
+                                        style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: "#a78bfa" }} />
+                                    </td>
+                                    <td style={{ padding: "6px 10px", color: T.textMid, fontSize: 11, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {knownName || upper || "—"}
+                                    </td>
+                                    <td style={{ padding: "6px 10px", color: T.text, whiteSpace: "nowrap" }}>
+                                      {isLoading ? <span style={{ color: T.textDim }}>⟳</span> : livePrice ? fmtC(livePrice) : <span style={{ color: T.textDim }}>—</span>}
+                                    </td>
+                                    <td style={{ padding: "6px 10px" }}>
+                                      <input type="number" value={h.shares}
+                                        onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, shares: e.target.value } : x))}
+                                        placeholder="100" style={{ ...inputStyle, width: 90, fontSize: 12 }} />
+                                    </td>
+                                    <td style={{ padding: "6px 10px" }}>
+                                      <input type="number" value={h.entryPrice}
+                                        onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, entryPrice: e.target.value } : x))}
+                                        placeholder="250.00" style={{ ...inputStyle, width: 100, fontSize: 12 }} />
+                                    </td>
+                                    <td style={{ padding: "6px 10px", color: "#a78bfa", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                      {targetValue != null ? fmtC(targetValue) : <span style={{ color: T.textDim }}>—</span>}
+                                    </td>
+                                    {/* vs Actual */}
+                                    <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                      {diffValue != null ? (
+                                        <div>
+                                          <span style={{ color: diffValue >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+                                            {diffValue >= 0 ? "+" : ""}{fmtC(diffValue)}
+                                          </span>
+                                          <span style={{ display: "block", fontSize: 10, color: T.textDim }}>
+                                            {diffShares >= 0 ? "+" : ""}{diffShares.toFixed(2)} shares
+                                          </span>
+                                        </div>
+                                      ) : actual ? (
+                                        <span style={{ fontSize: 10, color: T.textDim }}>no price</span>
+                                      ) : (
+                                        <span style={{ fontSize: 10, color: "#f59e0b" }}>not in actual</span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                      {plannedPct != null ? (
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <div style={{ width: 50, height: 4, background: T.border2, borderRadius: 2 }}>
+                                            <div style={{ width: `${Math.min(100, plannedPct)}%`, height: "100%", background: "#7c3aed", borderRadius: 2 }} />
+                                          </div>
+                                          <span style={{ color: T.textMid }}>{plannedPct}%</span>
+                                        </div>
+                                      ) : <span style={{ color: T.textDim }}>—</span>}
+                                    </td>
+                                    <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                                      <span style={{ color: action.color, background: action.color + "22", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                                        {action.label}
+                                      </span>
+                                      {portfolioRisk[upper] != null && (
+                                        <span style={{ display: "block", fontSize: 10, color: T.textDim, marginTop: 2 }}>risk {portfolioRisk[upper].toFixed(3)}</span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: "6px 10px" }}>
+                                      <button onClick={() => setPlanned(p => p.filter(x => x.id !== h.id))} style={{
+                                        background: "transparent", border: "none", color: T.textDim,
+                                        cursor: "pointer", fontSize: 16, padding: "2px 6px", borderRadius: 4,
+                                      }}>×</button>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Planned Summary Footer */}
+                      {(() => {
+                        const totalValue = planned.reduce((sum, h) => {
+                          const price = portfolioPrices[h.ticker?.toUpperCase()] ?? 0;
+                          return sum + (price * (parseFloat(h.shares) || 0));
+                        }, 0);
+                        const totalCost = planned.reduce((sum, h) => sum + ((parseFloat(h.entryPrice) || 0) * (parseFloat(h.shares) || 0)), 0);
+                        const totalGain = totalValue - totalCost;
+                        const totalGainPct = totalCost > 0 ? ((totalGain / totalCost) * 100).toFixed(2) : null;
+                        // Compare planned total vs actual total
+                        const actualTotal = portfolio.reduce((sum, h) => {
+                          const price = portfolioPrices[h.ticker?.toUpperCase()] ?? 0;
+                          return sum + (price * (parseFloat(h.shares) || 0));
+                        }, 0);
+                        const diff = totalValue - actualTotal;
+                        if (totalValue === 0) return null;
+                        return (
+                          <div style={{ marginTop: 12, padding: "16px 20px", background: "#1a0a2e", borderRadius: 8, border: `1px solid #4c1d95`, display: "flex", gap: 32, flexWrap: "wrap" }}>
+                            <div>
+                              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Planned Value</div>
+                              <div style={{ fontSize: 20, fontWeight: 700, color: "#a78bfa", fontFamily: "'Space Grotesk', sans-serif" }}>{fmtC(totalValue)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Planned Cost</div>
+                              <div style={{ fontSize: 20, fontWeight: 700, color: T.textMid, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtC(totalCost)}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Projected Gain</div>
+                              <div style={{ fontSize: 20, fontWeight: 700, color: totalGain >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
+                                {totalGain >= 0 ? "+" : ""}{fmtC(totalGain)}
+                                {totalGainPct && <span style={{ fontSize: 13, marginLeft: 8 }}>{totalGain >= 0 ? "▲" : "▼"} {Math.abs(totalGainPct)}%</span>}
+                              </div>
+                            </div>
+                            {actualTotal > 0 && (
+                              <div>
+                                <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>vs Actual Portfolio</div>
+                                <div style={{ fontSize: 20, fontWeight: 700, color: diff >= 0 ? "#22c55e" : "#ef4444", fontFamily: "'Space Grotesk', sans-serif" }}>
+                                  {diff >= 0 ? "+" : ""}{fmtC(diff)}
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Targets</div>
+                              <div style={{ fontSize: 20, fontWeight: 700, color: T.textMid, fontFamily: "'Space Grotesk', sans-serif" }}>{planned.filter(h => h.ticker).length}</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
               </>
             )}
           </div>

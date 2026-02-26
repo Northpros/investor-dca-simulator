@@ -194,6 +194,7 @@ export default function DCASimulator() {
   const [planned, setPlanned] = useState(() => {
     try { const s = localStorage.getItem(PLANNED_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
   });
+  const [showCagr, setShowCagr] = useState(false);
   const [portfolioPrices, setPortfolioPrices] = useState({});
   const [portfolioLoading, setPortfolioLoading] = useState({});
 
@@ -1871,6 +1872,12 @@ export default function DCASimulator() {
                   background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
                   color: T.textMid, padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace",
                 }}>⟳ Refresh Prices</button>
+                <button onClick={() => setShowCagr(s => !s)} style={{
+                  background: showCagr ? T.accent + "33" : T.inputBg,
+                  border: `1px solid ${showCagr ? T.accent : T.border2}`,
+                  borderRadius: 6, color: showCagr ? T.accent : T.textMid,
+                  padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace",
+                }}>{showCagr ? "Hide CAGR" : "Show CAGR"}</button>
                 <button onClick={addHolding} style={{
                   background: T.accent, border: "none", borderRadius: 6,
                   color: "#fff", padding: "7px 16px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace", fontWeight: 600,
@@ -1976,7 +1983,7 @@ export default function DCASimulator() {
                               </td>
                             </tr>
                             {/* CAGR row - always shown, loading state if data not ready */}
-                            {upper && (
+                            {showCagr && upper && (
                               <tr style={{ borderBottom: `2px solid ${T.border}` }}>
                                 <td colSpan={10} style={{ padding: "0", background: "transparent" }}>
                                   {portfolioCagr[upper] ? (() => {
@@ -2003,7 +2010,7 @@ export default function DCASimulator() {
                                       </div>
                                     );
                                   })() : (
-                                    <div style={{ background: darkMode ? "#111130" : "#e8e8ff", padding: "5px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                                    <div style={{ padding: "5px 16px", display: "flex", alignItems: "center", gap: 10 }}>
                                       <span style={{ fontSize: 10, color: T.textDim }}>CAGR</span>
                                       <span style={{ fontSize: 10, color: T.textDim, fontStyle: "italic" }}>
                                         {portfolioLoading[upper] ? "⟳ loading..." : "refresh prices to load"}
@@ -2182,8 +2189,8 @@ export default function DCASimulator() {
                                       }}>×</button>
                                     </td>
                                   </tr>
-                                  {/* CAGR row - always shown */}
-                                  {upper && (
+                                  {/* CAGR row */}
+                                  {showCagr && upper && (
                                     <tr style={{ borderBottom: `2px solid ${T.border}` }}>
                                       <td colSpan={10} style={{ padding: "0", background: "transparent" }}>
                                         {portfolioCagr[upper] ? (() => {

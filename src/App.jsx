@@ -283,18 +283,18 @@ export default function DCASimulator() {
   }
 
   function computeRiskFromPrices(prices) {
-    // Same 500-day geometric MA model used in the simulator
-    const window = Math.min(500, prices.length);
-    const slice = prices.slice(-window);
-    const logPrices = slice.map(p => Math.log(p));
-    const ma = logPrices.reduce((s, v) => s + v, 0) / logPrices.length;
-    const currentLog = Math.log(prices[prices.length - 1]);
-    // Risk = how far above the MA we are, normalized 0-1
-    const std = Math.sqrt(logPrices.reduce((s, v) => s + (v - ma) ** 2, 0) / logPrices.length);
-    if (std === 0) return 0.5;
-    const z = (currentLog - ma) / std;
-    // Sigmoid-style mapping: z=0 → 0.5, z=2 → ~0.88, z=-2 → ~0.12
-    return Math.min(1, Math.max(0, 1 / (1 + Math.exp(-z * 1.2))));
+    // Exact same 500-day geometric MA + calcRisk formula as the simulator
+    const WINDOW = 500;
+    let logSum = 0;
+    let risk = 0.5;
+    prices.forEach((price, i) => {
+      logSum += Math.log10(Math.max(price, 1));
+      if (i >= WINDOW) logSum -= Math.log10(Math.max(prices[i - WINDOW], 1));
+      const ma = Math.pow(10, logSum / Math.min(i + 1, WINDOW));
+      const logRatio = Math.log10(price / ma);
+      risk = Math.min(1, Math.max(0, (logRatio + 0.4647) / 1.0013));
+    });
+    return risk;
   }
 
   function getPortfolioAction(ticker) {
@@ -1904,6 +1904,11 @@ export default function DCASimulator() {
                                 <span style={{ color: action.color, background: action.color + "22", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
                                   {action.label}
                                 </span>
+                                {portfolioRisk[upper] != null && (
+                                  <span style={{ display: "block", fontSize: 10, color: T.textDim, marginTop: 2 }}>
+                                    risk {portfolioRisk[upper].toFixed(3)}
+                                  </span>
+                                )}
                               </td>
                               <td style={{ padding: "6px 10px" }}>
                                 <button onClick={() => removeHolding(h.id)} style={{

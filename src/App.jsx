@@ -2017,7 +2017,7 @@ export default function DCASimulator() {
                                       else setCustomTicker(upper);
                                       setTickerInput(upper);
                                       setTab("dynamic");
-                                      window.scrollTo(0, 0);
+                                      setTimeout(() => window.scrollTo({ top: 0, behavior: "instant" }), 0);
                                     }} style={{
                                       background: "transparent", border: "none", cursor: "pointer",
                                       color: T.accent, fontSize: 13, padding: "0 2px", lineHeight: 1,
@@ -2231,7 +2231,7 @@ export default function DCASimulator() {
                                             else setCustomTicker(upper);
                                             setTickerInput(upper);
                                             setTab("dynamic");
-                                            window.scrollTo(0, 0);
+                                            setTimeout(() => window.scrollTo({ top: 0, behavior: "instant" }), 0);
                                           }} style={{
                                             background: "transparent", border: "none", cursor: "pointer",
                                             color: "#a78bfa", fontSize: 13, padding: "0 2px", lineHeight: 1,

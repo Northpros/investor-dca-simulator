@@ -99,10 +99,29 @@ const KNOWN_NAMES = {
   };
 export default function DCASimulator() {
   const [tab, setTab] = useState("dynamic");
+
+  const MASTER_DEFAULTS = {
+    assetId: "SPY", customTicker: null, frequency: "Monthly", startDate: "2022-02-02",
+    riskBandIdx: 5, strategy: "Linear", riskOffset: -0.05,
+    sellEnabled: false, sell90: true, initEnabled: false,
+    initShares: "", initAvgPrice: "", initDate: "2022-01-01",
+    leapEnabled: false, ccEnabled: false,
+    ccPremiumPct: 0.40, leap09: true, leapCostPct: 0.40, leapDelta: 0.75,
+    baseAmount: 1000, dayOfMonth: 13,
+  };
+  const USER_DEFAULTS_KEY = "reversion_alpha_user_defaults_v1";
+  const loadUserDefaults = () => {
+    try { const s = localStorage.getItem(USER_DEFAULTS_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+  };
+  const getInitial = (key, fallback) => {
+    const ud = loadUserDefaults();
+    return ud && ud[key] !== undefined ? ud[key] : fallback;
+  };
+  const [showDefaultsMenu, setShowDefaultsMenu] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [currency, setCurrency] = useState("USD");
   const [cadRate, setCadRate] = useState(1.36); // fallback USD→CAD rate
-  const [baseAmount, setBaseAmount] = useState(1000);
+  const [baseAmount, setBaseAmount] = useState(() => getInitial("baseAmount", 1000));
   // ── Asset catalogue ───────────────────────────────────────────────────────
   const ASSETS = [
     // Crypto — Binance
@@ -153,32 +172,32 @@ export default function DCASimulator() {
     { id: "XLK",   label: "XLK (Tech Sector ETF)",        type: "etf", cgId: null, ticker: "XLK"   },
   ];
 
-  const [assetId, setAssetId] = useState("SPY");
+  const [assetId, setAssetId] = useState(() => getInitial("assetId", "SPY"));
   const asset = ASSETS.find(a => a.id === assetId) ?? ASSETS[0];
   const [tickerInput, setTickerInput] = useState("SPY");
-  const [customTicker, setCustomTicker] = useState(null); // null = use dropdown ASSETS
+  const [customTicker, setCustomTicker] = useState(() => getInitial("customTicker", null)); // null = use dropdown ASSETS
   const [companyName, setCompanyName] = useState("SPDR S&P 500 ETF");
 
-  const [frequency, setFrequency] = useState("Monthly");
-  const [dayOfMonth, setDayOfMonth] = useState(13);
-  const [startDate, setStartDate] = useState("2022-02-02");
+  const [frequency, setFrequency] = useState(() => getInitial("frequency", "Monthly"));
+  const [dayOfMonth, setDayOfMonth] = useState(() => getInitial("dayOfMonth", 13));
+  const [startDate, setStartDate] = useState(() => getInitial("startDate", "2022-02-02"));
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [riskBandIdx, setRiskBandIdx] = useState(5);
-  const [strategy, setStrategy] = useState("Linear");
+  const [riskBandIdx, setRiskBandIdx] = useState(() => getInitial("riskBandIdx", 5));
+  const [strategy, setStrategy] = useState(() => getInitial("strategy", "Linear"));
   const [scaleY, setScaleY] = useState("Lin");
-  const [riskOffset, setRiskOffset] = useState(-0.05);
-  const [sellEnabled, setSellEnabled] = useState(false);
-  const [initEnabled, setInitEnabled] = useState(false);
-  const [initDate, setInitDate] = useState("2022-01-01");
-  const [initShares, setInitShares] = useState("");
-  const [initAvgPrice, setInitAvgPrice] = useState("");
-  const [sell90, setSell90] = useState(true);
-  const [leapEnabled, setLeapEnabled] = useState(false);
-  const [ccEnabled, setCcEnabled] = useState(false);
-  const [ccPremiumPct, setCcPremiumPct] = useState(0.40); // 0.40% of share value per month
-  const [leap09, setLeap09] = useState(true);   // 0.0 – 0.099 risk zone
-  const [leapCostPct, setLeapCostPct] = useState(0.40);  // LEAP costs 40% of stock price
-  const [leapDelta, setLeapDelta] = useState(0.75);       // 0.75 delta
+  const [riskOffset, setRiskOffset] = useState(() => getInitial("riskOffset", -0.05));
+  const [sellEnabled, setSellEnabled] = useState(() => getInitial("sellEnabled", false));
+  const [initEnabled, setInitEnabled] = useState(() => getInitial("initEnabled", false));
+  const [initDate, setInitDate] = useState(() => getInitial("initDate", "2022-01-01"));
+  const [initShares, setInitShares] = useState(() => getInitial("initShares", ""));
+  const [initAvgPrice, setInitAvgPrice] = useState(() => getInitial("initAvgPrice", ""));
+  const [sell90, setSell90] = useState(() => getInitial("sell90", true));
+  const [leapEnabled, setLeapEnabled] = useState(() => getInitial("leapEnabled", false));
+  const [ccEnabled, setCcEnabled] = useState(() => getInitial("ccEnabled", false));
+  const [ccPremiumPct, setCcPremiumPct] = useState(() => getInitial("ccPremiumPct", 0.40)); // 0.40% of share value per month
+  const [leap09, setLeap09] = useState(() => getInitial("leap09", true));   // 0.0 – 0.099 risk zone
+  const [leapCostPct, setLeapCostPct] = useState(() => getInitial("leapCostPct", 0.40));  // LEAP costs 40% of stock price
+  const [leapDelta, setLeapDelta] = useState(() => getInitial("leapDelta", 0.75));       // 0.75 delta
 
   const [dailyData, setDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1108,12 +1127,73 @@ export default function DCASimulator() {
           </p>
         </div>
         <div style={{ textAlign: "right", fontSize: 11, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          <button onClick={() => setDarkMode(m => !m)} style={{
-            background: T.inputBg, border: `1px solid ${T.border2}`,
-            borderRadius: 20, padding: "4px 12px", cursor: "pointer",
-            fontSize: 12, color: T.textMid, fontFamily: "'DM Mono', monospace",
-            marginBottom: 4,
-          }}>{darkMode ? "☀ Day" : "🌙 Night"}</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* Defaults dropdown */}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowDefaultsMenu(m => !m)} style={{
+                background: T.inputBg, border: `1px solid ${T.border2}`,
+                borderRadius: 20, padding: "4px 12px", cursor: "pointer",
+                fontSize: 12, color: T.textMid, fontFamily: "'DM Mono', monospace",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>Defaults <span style={{ fontSize: 10 }}>▾</span></button>
+              {showDefaultsMenu && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0,
+                  background: T.card, border: `1px solid ${T.border2}`,
+                  borderRadius: 8, overflow: "hidden", zIndex: 999, minWidth: 160,
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+                }}>
+                  {[
+                    { label: "Save as default", action: () => {
+                      const settings = {
+                        assetId, customTicker, frequency, startDate,
+                        riskBandIdx, strategy, riskOffset,
+                        sellEnabled, sell90, initEnabled,
+                        initShares, initAvgPrice, initDate,
+                        leapEnabled, ccEnabled, ccPremiumPct,
+                        leap09, leapCostPct, leapDelta,
+                        baseAmount, dayOfMonth,
+                      };
+                      localStorage.setItem(USER_DEFAULTS_KEY, JSON.stringify(settings));
+                      setShowDefaultsMenu(false);
+                      alert("✓ Settings saved as your default");
+                    }},
+                    { label: "Reset settings", action: () => {
+                      localStorage.removeItem(USER_DEFAULTS_KEY);
+                      const d = MASTER_DEFAULTS;
+                      setAssetId(d.assetId); setCustomTicker(d.customTicker);
+                      setFrequency(d.frequency); setStartDate(d.startDate);
+                      setRiskBandIdx(d.riskBandIdx); setStrategy(d.strategy);
+                      setRiskOffset(d.riskOffset); setSellEnabled(d.sellEnabled);
+                      setSell90(d.sell90); setInitEnabled(d.initEnabled);
+                      setInitShares(d.initShares); setInitAvgPrice(d.initAvgPrice);
+                      setInitDate(d.initDate); setLeapEnabled(d.leapEnabled);
+                      setCcEnabled(d.ccEnabled); setCcPremiumPct(d.ccPremiumPct);
+                      setLeap09(d.leap09); setLeapCostPct(d.leapCostPct);
+                      setLeapDelta(d.leapDelta); setBaseAmount(d.baseAmount);
+                      setDayOfMonth(d.dayOfMonth);
+                      setShowDefaultsMenu(false);
+                    }},
+                  ].map(({ label, action }) => (
+                    <button key={label} onClick={action} style={{
+                      display: "block", width: "100%", textAlign: "left",
+                      padding: "10px 16px", background: "transparent",
+                      border: "none", color: T.text, fontSize: 12,
+                      fontFamily: "'DM Mono', monospace", cursor: "pointer",
+                    }}
+                    onMouseEnter={e => e.target.style.background = T.inputBg}
+                    onMouseLeave={e => e.target.style.background = "transparent"}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setDarkMode(m => !m)} style={{
+              background: T.inputBg, border: `1px solid ${T.border2}`,
+              borderRadius: 20, padding: "4px 12px", cursor: "pointer",
+              fontSize: 12, color: T.textMid, fontFamily: "'DM Mono', monospace",
+            }}>{darkMode ? "☀ Day" : "🌙 Night"}</button>
+          </div>
           {loading && <span style={{ color: T.accent }}>{`⟳ Fetching live ${displayLabel} price history...`}</span>}
           {!loading && error && <span style={{ color: "#f59e0b" }}>⚠ {error}</span>}
           {!loading && !error && lastUpdated && (

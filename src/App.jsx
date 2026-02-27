@@ -1177,7 +1177,7 @@ export default function DCASimulator() {
                       else setCustomTicker(t);
                     }
                   }}
-                  placeholder="BTC"
+                  placeholder="SPY"
                   maxLength={10}
                 />
                 <button

@@ -174,7 +174,7 @@ export default function DCASimulator() {
 
   const [assetId, setAssetId] = useState(() => getInitial("assetId", "SPY"));
   const asset = ASSETS.find(a => a.id === assetId) ?? ASSETS[0];
-  const [tickerInput, setTickerInput] = useState("SPY");
+  const [tickerInput, setTickerInput] = useState(() => getInitial("customTicker", null) || getInitial("assetId", "SPY"));
   const [customTicker, setCustomTicker] = useState(() => getInitial("customTicker", null)); // null = use dropdown ASSETS
   const [companyName, setCompanyName] = useState("SPDR S&P 500 ETF");
 

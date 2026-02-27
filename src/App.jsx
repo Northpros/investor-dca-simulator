@@ -1257,6 +1257,7 @@ export default function DCASimulator() {
                   type="text"
                   style={{ ...inputStyle, width: 90, textTransform: "uppercase" }}
                   value={tickerInput}
+                  onFocus={e => e.target.select()}
                   onChange={e => setTickerInput(e.target.value.toUpperCase())}
                   onKeyDown={e => {
                     if (e.key === "Enter") {

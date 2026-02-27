@@ -1240,11 +1240,11 @@ export default function DCASimulator() {
               const yahooUrl = `https://finance.yahoo.com/quote/${yahooTicker}/`;
               return (
                 <a href={yahooUrl} target="_blank" rel="noopener noreferrer" title="View on Yahoo Finance" style={{
-                  fontSize: 11, color: T.textDim, textDecoration: "none",
-                  fontFamily: "'DM Mono', monospace", opacity: 0.6,
+                  fontSize: 11, color: T.textMid, textDecoration: "none",
+                  fontFamily: "'DM Mono', monospace",
                   whiteSpace: "nowrap",
-                }} onMouseEnter={e => e.target.style.opacity = 1}
-                   onMouseLeave={e => e.target.style.opacity = 0.6}>
+                }} onMouseEnter={e => e.target.style.color = T.accent}
+                   onMouseLeave={e => e.target.style.color = T.textMid}>
                   ↗ Yahoo
                 </a>
               );

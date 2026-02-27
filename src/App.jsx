@@ -2216,12 +2216,27 @@ export default function DCASimulator() {
                                   <React.Fragment key={h.id}>
                                   <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                                     <td style={{ padding: "6px 10px" }}>
-                                      <input value={h.ticker}
-                                        onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, ticker: e.target.value.toUpperCase() } : x))}
-                                        onBlur={e => { if (e.target.value) fetchPortfolioPrice(e.target.value); }}
-                                        onKeyDown={e => { if (e.key === "Enter" && h.ticker) fetchPortfolioPrice(h.ticker); }}
-                                        placeholder="TSLA"
-                                        style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: "#a78bfa" }} />
+                                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                        <input value={h.ticker}
+                                          onChange={e => setPlanned(p => p.map(x => x.id === h.id ? { ...x, ticker: e.target.value.toUpperCase() } : x))}
+                                          onBlur={e => { if (e.target.value) fetchPortfolioPrice(e.target.value); }}
+                                          onKeyDown={e => { if (e.key === "Enter" && h.ticker) fetchPortfolioPrice(h.ticker); }}
+                                          placeholder="TSLA"
+                                          style={{ ...inputStyle, width: 80, fontSize: 12, fontWeight: 700, color: "#a78bfa" }} />
+                                        {upper && (
+                                          <button title={`Analyze ${upper} in Precision DCA`} onClick={() => {
+                                            const known = ASSETS.find(a => a.id === upper);
+                                            if (known) { setAssetId(upper); setCustomTicker(null); }
+                                            else setCustomTicker(upper);
+                                            setTickerInput(upper);
+                                            setTab("dynamic");
+                                          }} style={{
+                                            background: "transparent", border: "none", cursor: "pointer",
+                                            color: "#a78bfa", fontSize: 13, padding: "0 2px", lineHeight: 1,
+                                            opacity: 0.7,
+                                          }}>↗</button>
+                                        )}
+                                      </div>
                                     </td>
                                     <td style={{ padding: "6px 10px", color: T.text, fontSize: 12, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
                                       {knownName || upper || "—"}

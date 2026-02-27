@@ -102,7 +102,7 @@ export default function DCASimulator() {
 
   const MASTER_DEFAULTS = {
     assetId: "SPY", customTicker: null, frequency: "Monthly", startDate: "2022-02-02",
-    riskBandIdx: 5, strategy: "Linear", riskOffset: -0.05,
+    riskBandIdx: 4, strategy: "Linear", riskOffset: -0.05,
     sellEnabled: false, sell90: true, initEnabled: false,
     initShares: "", initAvgPrice: "", initDate: "2022-01-01",
     leapEnabled: false, ccEnabled: false,
@@ -182,7 +182,7 @@ export default function DCASimulator() {
   const [dayOfMonth, setDayOfMonth] = useState(() => getInitial("dayOfMonth", 13));
   const [startDate, setStartDate] = useState(() => getInitial("startDate", "2022-02-02"));
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [riskBandIdx, setRiskBandIdx] = useState(() => getInitial("riskBandIdx", 5));
+  const [riskBandIdx, setRiskBandIdx] = useState(() => getInitial("riskBandIdx", 4));
   const [strategy, setStrategy] = useState(() => getInitial("strategy", "Linear"));
   const [scaleY, setScaleY] = useState("Lin");
   const [riskOffset, setRiskOffset] = useState(() => getInitial("riskOffset", -0.05));
@@ -578,7 +578,7 @@ export default function DCASimulator() {
       setRiskBandIdx(4);
       setRiskOffset(-0.02);
     } else {
-      setRiskBandIdx(5);
+      setRiskBandIdx(4);
       setRiskOffset(-0.05);
     }
     // Reset sell strategy, initial position and LEAP

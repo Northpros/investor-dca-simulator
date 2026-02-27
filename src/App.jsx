@@ -625,7 +625,17 @@ export default function DCASimulator() {
         const key = `${date.getFullYear()}-${date.getMonth()}`;
         if (!fired.has(key) && date.getDate() >= dom) {
           fired.add(key);
-          fired.add(i); // mark this index as the purchase day
+          fired.add(i);
+        }
+      }
+      if (freq === "Quarterly") {
+        const m = date.getMonth(); // 0-11
+        if (m % 3 === 0) { // Jan(0), Apr(3), Jul(6), Oct(9)
+          const key = `${date.getFullYear()}-Q${Math.floor(m / 3)}`;
+          if (!fired.has(key) && date.getDate() >= dom) {
+            fired.add(key);
+            fired.add(i);
+          }
         }
       }
     });
@@ -1305,11 +1315,11 @@ export default function DCASimulator() {
               <div>
                 <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Repeat Purchase</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={frequency} onChange={e => setFrequency(e.target.value)}>
-                  <option>Daily</option><option>Weekly</option><option>Monthly</option>
+                  <option>Daily</option><option>Weekly</option><option>Monthly</option><option>Quarterly</option>
                 </select>
               </div>
             )}
-            {tab !== "lump" && frequency === "Monthly" && (
+            {tab !== "lump" && (frequency === "Monthly" || frequency === "Quarterly") && (
               <div>
                 <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Day of month</div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={dayOfMonth} onChange={e => setDayOfMonth(Number(e.target.value))}>
@@ -1864,7 +1874,7 @@ export default function DCASimulator() {
               Simulated Trade History
             </h3>
             <p style={{ margin: "0 0 14px", fontSize: 11, color: T.textDim }}>
-              {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()} on the ${dayOfMonth} — from ${startDate} to ${endDate}`}
+              {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()}${frequency === "Monthly" || frequency === "Quarterly" ? ` on the ${dayOfMonth}` : ""} — from ${startDate} to ${endDate}`}
             </p>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>

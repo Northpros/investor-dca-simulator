@@ -1234,6 +1234,21 @@ export default function DCASimulator() {
             <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 400, color: T.textMid }}>
               {companyName}
             </span>
+            {displayTicker && (() => {
+              const isCrypto = asset.type === "binance" || asset.type === "crypto";
+              const yahooTicker = isCrypto ? `${displayTicker}-USD` : displayTicker;
+              const yahooUrl = `https://finance.yahoo.com/quote/${yahooTicker}/`;
+              return (
+                <a href={yahooUrl} target="_blank" rel="noopener noreferrer" title="View on Yahoo Finance" style={{
+                  fontSize: 11, color: T.textDim, textDecoration: "none",
+                  fontFamily: "'DM Mono', monospace", opacity: 0.6,
+                  whiteSpace: "nowrap",
+                }} onMouseEnter={e => e.target.style.opacity = 1}
+                   onMouseLeave={e => e.target.style.opacity = 0.6}>
+                  ↗ Yahoo
+                </a>
+              );
+            })()}
             {stats && (
               <span style={{ marginLeft: "auto", fontFamily: "'DM Mono', monospace", fontSize: 13, color: T.text }}>
                 {fmtC(stats.lastPrice)}

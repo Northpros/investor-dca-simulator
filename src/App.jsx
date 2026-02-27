@@ -1236,7 +1236,7 @@ export default function DCASimulator() {
             </span>
             {displayTicker && (() => {
               const isCrypto = asset.type === "binance" || asset.type === "crypto";
-              const yahooTicker = isCrypto ? `${displayTicker}-USD` : displayTicker;
+              const yahooTicker = (isCrypto && !displayTicker.includes('.')) ? `${displayTicker}-USD` : displayTicker;
               const yahooUrl = `https://finance.yahoo.com/quote/${yahooTicker}/`;
               return (
                 <a href={yahooUrl} target="_blank" rel="noopener noreferrer" title="View on Yahoo Finance" style={{

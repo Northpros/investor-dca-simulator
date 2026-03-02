@@ -614,6 +614,12 @@ export default function DCASimulator() {
     setStartDate(d.toISOString().slice(0, 10));
   }, [endDate, autoStart]);
 
+  // Auto-set currency based on ticker — .TO stocks trade in CAD natively
+  useEffect(() => {
+    const ticker = (customTicker ?? assetId ?? "").toUpperCase();
+    setCurrency(ticker.endsWith(".TO") ? "CAD" : "USD");
+  }, [customTicker, assetId]);
+
   const riskBand = RISK_BANDS[riskBandIdx];
   const displayTicker = customTicker ?? asset.id;
   const displayLabel = customTicker ?? asset.label;
@@ -1083,8 +1089,13 @@ export default function DCASimulator() {
   };
 
   // Currency helpers
+  const isAlreadyCAD = (customTicker ?? assetId ?? "").toUpperCase().endsWith(".TO");
   const currSym = currency === "CAD" ? "CA$" : "$";
-  const toDisplay = (usdVal) => currency === "CAD" ? usdVal * cadRate : usdVal;
+  const toDisplay = (val) => {
+    if (isAlreadyCAD && currency === "USD") return val / cadRate; // .TO stock in CAD → convert to USD
+    if (!isAlreadyCAD && currency === "CAD") return val * cadRate; // USD stock → convert to CAD
+    return val; // no conversion needed
+  };
   const fmtC = (usdVal) => fmt$(toDisplay(usdVal), currSym);
 
   const inputStyle = {
@@ -1339,9 +1350,19 @@ export default function DCASimulator() {
                 {pillBtn(currency === "USD", () => setCurrency("USD"), "USD")}
                 {pillBtn(currency === "CAD", () => setCurrency("CAD"), "CAD")}
               </div>
-              {currency === "CAD" && (
+              {currency === "CAD" && !isAlreadyCAD && (
                 <div style={{ fontSize: 9, color: T.textDim, marginTop: 3 }}>
                   Rate: 1 USD = {cadRate.toFixed(4)} CAD
+                </div>
+              )}
+              {currency === "USD" && isAlreadyCAD && (
+                <div style={{ fontSize: 9, color: T.textDim, marginTop: 3 }}>
+                  Rate: 1 USD = {cadRate.toFixed(4)} CAD
+                </div>
+              )}
+              {currency === "CAD" && isAlreadyCAD && (
+                <div style={{ fontSize: 9, color: "#22c55e", marginTop: 3 }}>
+                  Native CAD — no conversion
                 </div>
               )}
             </div>

@@ -581,6 +581,13 @@ export default function DCASimulator() {
       setRiskBandIdx(4);
       setRiskOffset(-0.05);
     }
+    // Auto-set currency for .TO stocks
+    const ticker = (customTicker ?? assetId ?? "").toUpperCase();
+    if (ticker.endsWith(".TO")) {
+      setCurrency("CAD");
+    } else {
+      setCurrency("USD");
+    }
     // Reset sell strategy, initial position and LEAP
     setSellEnabled(false);
     setInitEnabled(false);

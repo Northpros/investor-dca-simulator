@@ -1074,11 +1074,12 @@ export default function DCASimulator() {
   // Currency helpers
   const currSym = currency === "CAD" ? "CA$" : "$";
   const isAlreadyCAD = displayTicker?.toUpperCase().endsWith(".TO");
-  const toDisplay = (usdVal) => {
-    if (currency === "CAD" && !isAlreadyCAD) return usdVal * cadRate;
-    return usdVal;
+  const toDisplay = (val) => {
+    if (isAlreadyCAD && currency === "USD") return val / cadRate; // CAD → USD
+    if (!isAlreadyCAD && currency === "CAD") return val * cadRate; // USD → CAD
+    return val; // no conversion needed
   };
-  const fmtC = (usdVal) => fmt$(toDisplay(usdVal), isAlreadyCAD ? "CA$" : currSym);
+  const fmtC = (val) => fmt$(toDisplay(val), currSym);
 
   const inputStyle = {
     background: T.inputBg, border: `1px solid ${T.border2}`, borderRadius: 6,
@@ -1337,9 +1338,14 @@ export default function DCASimulator() {
                   Rate: 1 USD = {cadRate.toFixed(4)} CAD
                 </div>
               )}
-              {isAlreadyCAD && (
+              {currency === "USD" && isAlreadyCAD && (
                 <div style={{ fontSize: 9, color: T.textDim, marginTop: 3 }}>
-                  Already quoted in CAD
+                  Rate: 1 USD = {cadRate.toFixed(4)} CAD
+                </div>
+              )}
+              {currency === "CAD" && isAlreadyCAD && (
+                <div style={{ fontSize: 9, color: T.textDim, marginTop: 3 }}>
+                  Native CAD — no conversion
                 </div>
               )}
             </div>

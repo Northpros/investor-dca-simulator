@@ -1148,6 +1148,10 @@ export default function DCASimulator() {
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
         noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
+        // CAGR calculations
+        years: rangeData.length > 1 ? (rangeData[rangeData.length-1].ts - rangeData[0].ts) / (365.25 * 24 * 60 * 60 * 1000) : 1,
+        lumpFinalValue: lumpAsset * lastPrice,
+        lumpEquiv,
       },
     };
   }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, sell80, deepDipEnabled, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
@@ -2105,6 +2109,75 @@ export default function DCASimulator() {
                   );
                 })()}
 
+
+                {/* Annual CAGR */}
+                {stats && stats.years > 0.5 && stats.totalInvested > 0 && (() => {
+                  const yrs = stats.years;
+                  // Portfolio CAGR (shares only)
+                  const portfolioCagr = (Math.pow(stats.currentPortfolio / stats.totalInvested, 1 / yrs) - 1) * 100;
+
+                  // Combined CAGR (all active features)
+                  const sellProceeds = (sellEnabled && stats.totalSellProceeds > 0) ? stats.totalSellProceeds : 0;
+                  const leapVal = (leapEnabled && stats.leapCount > 0) ? Math.max(0, stats.leapPortfolioValue) : 0;
+                  const ccInc = (ccEnabled && stats.ccCount > 0) ? stats.totalCcIncome : 0;
+                  const combinedTotal = stats.currentPortfolio + sellProceeds + leapVal + ccInc;
+                  const combinedCagr = (Math.pow(combinedTotal / stats.totalInvested, 1 / yrs) - 1) * 100;
+                  const hasMultiple = [true, sellProceeds > 0, leapVal > 0, ccInc > 0].filter(Boolean).length >= 2;
+
+                  // Lump Sum CAGR (benchmark)
+                  const lumpCagr = stats.lumpEquiv > 0
+                    ? (Math.pow(stats.lumpFinalValue / stats.lumpEquiv, 1 / yrs) - 1) * 100 : null;
+
+                  const fmtCagr = v => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—";
+                  const cagrColor = v => v == null ? T.textDim : v >= 15 ? "#86efac" : v >= 7 ? "#22c55e" : v >= 0 ? "#fcd34d" : "#ef4444";
+
+                  return (
+                    <div style={{ marginTop: 4, paddingTop: 16, borderTop: `2px solid ${T.border}` }}>
+                      <div style={{ fontSize: 10, color: T.label, marginBottom: 10, letterSpacing: 1, textTransform: "uppercase" }}>
+                        Annual CAGR<InfoTip text="Compound Annual Growth Rate — annualized return over the simulation period. Compares your strategy against a lump sum benchmark." />
+                      </div>
+                      <div style={{ fontSize: 10, color: T.textDim, marginBottom: 6 }}>
+                        Over {yrs.toFixed(1)} years
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: T.textDim }}>Portfolio</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: cagrColor(portfolioCagr), fontFamily: "'Space Grotesk', sans-serif" }}>
+                            {fmtCagr(portfolioCagr)}
+                          </div>
+                        </div>
+
+                        {hasMultiple && (
+                          <div>
+                            <div style={{ fontSize: 10, color: T.textDim }}>Combined</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: cagrColor(combinedCagr), fontFamily: "'Space Grotesk', sans-serif" }}>
+                              {fmtCagr(combinedCagr)}
+                            </div>
+                          </div>
+                        )}
+
+                        {tab !== "lump" && lumpCagr != null && (
+                          <div>
+                            <div style={{ fontSize: 10, color: T.textDim }}>Lump Sum</div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#888", fontFamily: "'Space Grotesk', sans-serif" }}>
+                              {fmtCagr(lumpCagr)}
+                            </div>
+                          </div>
+                        )}
+
+                        {tab !== "lump" && lumpCagr != null && (() => {
+                          const diff = (hasMultiple ? combinedCagr : portfolioCagr) - lumpCagr;
+                          return (
+                            <div style={{ fontSize: 10, marginTop: 2, color: diff >= 0 ? "#22c55e" : "#ef4444" }}>
+                              {diff >= 0 ? "▲" : "▼"} {Math.abs(diff).toFixed(1)}% vs lump sum
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })()}
 
               </div>
             )}

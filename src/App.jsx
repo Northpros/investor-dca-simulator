@@ -200,8 +200,6 @@ export default function DCASimulator() {
   const [initAvgPrice, setInitAvgPrice] = useState(() => getInitial("initAvgPrice", ""));
   const [sell90, setSell90] = useState(() => getInitial("sell90", true));
   const [sell80, setSell80] = useState(() => getInitial("sell80", true));
-  const [reinvestEnabled, setReinvestEnabled] = useState(() => getInitial("reinvestEnabled", false));
-  const [reinvestPct, setReinvestPct] = useState(() => getInitial("reinvestPct", 50));
   const [leapEnabled, setLeapEnabled] = useState(() => getInitial("leapEnabled", false));
   const [ccEnabled, setCcEnabled] = useState(() => getInitial("ccEnabled", false));
   const [ccPremiumPct, setCcPremiumPct] = useState(() => getInitial("ccPremiumPct", 0.40)); // 0.40% of share value per month
@@ -732,8 +730,6 @@ export default function DCASimulator() {
     let totalAsset = 0;
     let totalAssetNoSell = 0;
     let buyCount = 0, sellCount = 0, totalSellProceeds = 0, totalSellAsset = 0, totalSellCostBasis = 0;
-    let reinvestQueue = 0;   // cash waiting to be reinvested
-    let totalReinvested = 0; // running total of how much was actually reinvested
     let leapCount = 0, totalLeapInvested = 0;
     let leapRealizedPnl = 0; // P&L from expired/closed LEAP positions
     let leapClosedCount = 0;
@@ -897,10 +893,6 @@ export default function DCASimulator() {
           totalSellProceeds += sellProceeds;
           totalSellAsset += assetSold;
           sellCount++;
-          // Queue portion of proceeds for reinvestment on next qualifying buy
-          if (reinvestEnabled && reinvestPct > 0) {
-            reinvestQueue += sellProceeds * (reinvestPct / 100);
-          }
         }
       }
 
@@ -977,16 +969,7 @@ export default function DCASimulator() {
       }
 
       if (purchase > 0 && !isSellDay) { totalInvested += purchase; totalAsset += purchase / d.price; }
-      if (purchase > 0) totalAssetNoSell += purchase / d.price; // always accumulate for comparison
-
-      // Stack reinvest queue on top of regular buy — only when risk says buy (purchase > 0)
-      if (reinvestEnabled && reinvestQueue > 0 && purchase > 0 && !isSellDay && !isLastDay) {
-        totalAsset += reinvestQueue / d.price;
-        totalAssetNoSell += reinvestQueue / d.price;
-        totalInvested += reinvestQueue;
-        totalReinvested += reinvestQueue;
-        reinvestQueue = 0;
-      }
+      if (purchase > 0) totalAssetNoSell += purchase / d.price;
 
       // Update tradeLog entry with running totals (after purchase)
       if (tradeLog.length > 0 && (isBuyDay || isLastDay || isCcDay)) {
@@ -1074,10 +1057,9 @@ export default function DCASimulator() {
         sellPnl: (currentPortfolio + totalSellProceeds) - totalInvested,
         noSellPortfolio: totalAssetNoSell * lastPrice,
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
-        totalReinvested, reinvestQueue,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, sell80, reinvestEnabled, reinvestPct, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, sell80, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -1210,7 +1192,7 @@ export default function DCASimulator() {
                       const settings = {
                         assetId, customTicker, frequency, startDate,
                         riskBandIdx, strategy, riskOffset,
-                        sellEnabled, sell90, sell80, reinvestEnabled, reinvestPct, initEnabled,
+                        sellEnabled, sell90, sell80, initEnabled,
                         initShares, initAvgPrice, initDate,
                         leapEnabled, ccEnabled, ccPremiumPct,
                         leap09, leapCostPct, leapDelta,
@@ -1227,7 +1209,7 @@ export default function DCASimulator() {
                       setFrequency(d.frequency); setStartDate(d.startDate);
                       setRiskBandIdx(d.riskBandIdx); setStrategy(d.strategy);
                       setRiskOffset(d.riskOffset); setSellEnabled(d.sellEnabled);
-                      setSell90(d.sell90); setSell80(d.sell80 ?? true); setReinvestEnabled(d.reinvestEnabled ?? false); setReinvestPct(d.reinvestPct ?? 50); setInitEnabled(d.initEnabled);
+                      setSell90(d.sell90); setSell80(d.sell80 ?? true); setInitEnabled(d.initEnabled);
                       setInitShares(d.initShares); setInitAvgPrice(d.initAvgPrice);
                       setInitDate(d.initDate); setLeapEnabled(d.leapEnabled);
                       setCcEnabled(d.ccEnabled); setCcPremiumPct(d.ccPremiumPct);
@@ -1503,36 +1485,6 @@ export default function DCASimulator() {
                 </label>
               </div>
             )}
-            {sellEnabled && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 2, paddingLeft: 4 }}>
-                <div style={{ fontSize: 10, color: T.label, marginBottom: 2 }}>Reinvest Proceeds</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {pillBtn(!reinvestEnabled, () => setReinvestEnabled(false), "Off")}
-                  {pillBtn(reinvestEnabled, () => setReinvestEnabled(true), "On")}
-                </div>
-                {reinvestEnabled && (
-                  <div style={{ marginTop: 4 }}>
-                    <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>
-                      Reinvest <span style={{ color: "#22c55e", fontWeight: 600 }}>{reinvestPct}%</span>
-                      <span style={{ color: T.textDim }}> · keep {100 - reinvestPct}% as profit</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="100" step="25"
-                      value={reinvestPct}
-                      onChange={e => setReinvestPct(Number(e.target.value))}
-                      style={{ width: 140, accentColor: "#22c55e", cursor: "pointer" }}
-                    />
-                    <div style={{ display: "flex", justifyContent: "space-between", width: 140, fontSize: 9, color: T.textDim, marginTop: 2 }}>
-                      <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-                    </div>
-                    <div style={{ fontSize: 9, color: T.textDim, marginTop: 4, lineHeight: 1.6 }}>
-                      Stacks on top of regular buy<br/>
-                      Only fires when risk says buy
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* LEAP Strategy */}
@@ -1718,7 +1670,7 @@ export default function DCASimulator() {
                       yAxisId="price"
                       orientation="right"
                       width={55}
-                      tick={{ fontSize: 9, fill: "#333355" }}
+                      tick={{ fontSize: 9, fill: "#7aa8cc" }}
                       tickFormatter={v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
                     />
                     <Tooltip content={<CustomTooltip />} />
@@ -1759,16 +1711,16 @@ export default function DCASimulator() {
                       );
                     })}
 
-                    {/* Price — muted background line on right axis */}
+                    {/* Price — reference line on right axis */}
                     <Line
                       yAxisId="price"
                       type="monotone"
                       dataKey="price"
                       name="Price"
-                      stroke="#334466"
+                      stroke="#7aa8cc"
                       strokeWidth={1.5}
                       dot={false}
-                      strokeOpacity={0.7}
+                      strokeOpacity={0.85}
                     />
                     {/* Risk — hero line on left axis */}
                     <Line
@@ -1915,20 +1867,6 @@ export default function DCASimulator() {
                         <span style={{ color: "#f59e0b", fontWeight: 600, marginLeft: 6 }}>
                           {fmtC(stats.totalSellProceeds / stats.totalSellAsset)}
                         </span>
-                      </div>
-                    )}
-                    {reinvestEnabled && stats.totalReinvested > 0 && (
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${T.border}` }}>
-                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 2 }}>Reinvested ({reinvestPct}%)</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#22c55e" }}>{fmtC(stats.totalReinvested)}</div>
-                        {stats.reinvestQueue > 0 && (
-                          <div style={{ fontSize: 9, color: T.textDim, marginTop: 2 }}>
-                            {fmtC(stats.reinvestQueue)} queued — waiting for next buy signal
-                          </div>
-                        )}
-                        <div style={{ fontSize: 9, color: T.textDim, marginTop: 2 }}>
-                          {fmtC(stats.totalSellProceeds * (1 - reinvestPct / 100))} taken as profit
-                        </div>
                       </div>
                     )}
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>

@@ -1659,7 +1659,7 @@ export default function DCASimulator() {
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
                   {tab === "dynamic" ? "Simulated Strategy Over Time" : "Risk Metric Over Time"}
                   <span style={{ fontSize: 10, color: T.textDim, fontWeight: 400, marginLeft: 10, fontFamily: "'DM Mono', monospace" }}>
-                    — <span style={{ color: "#aabbff" }}>risk</span> vs <span style={{ color: "#444466" }}>price</span>
+                    — <span style={{ color: "#aabbff" }}>risk</span> vs <span style={{ color: "#8b3a3a" }}>price</span>
                   </span>
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>

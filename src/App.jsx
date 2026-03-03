@@ -387,8 +387,8 @@ export default function DCASimulator() {
     if (!upper) return { label: "—", color: "#888" };
     const risk = portfolioRisk[upper] ?? null;
     if (risk === null) return { label: "Loading...", color: T.textDim };
-    if (risk >= 0.90) return { label: "Sell 10%", color: "#f59e0b" };
-    if (risk >= 0.80) return { label: "Sell 5%",  color: "#f97316" };
+    if (risk >= 0.95) return { label: "Sell 10%", color: "#f59e0b" };
+    if (risk >= 0.90) return { label: "Sell 5%",  color: "#f97316" };
     if (risk >= riskBand.max) return { label: "Hold", color: "#94a3b8" };
     const mult = getMultiplier(risk, riskBand, strategy);
     if (mult === 0) return { label: "Hold", color: "#94a3b8" };
@@ -972,8 +972,8 @@ export default function DCASimulator() {
       let sellPct = 0;
       let sellProceeds = 0;
       if (sellEnabled && isBuyDay && totalAsset > 0 && !isLastDay) {
-        if (sell90 && d.risk >= 0.90) sellPct = 0.10;
-        else if (sell80 && d.risk >= 0.80) sellPct = 0.05;
+        if (sell90 && d.risk >= 0.95) sellPct = 0.10;
+        else if (sell80 && d.risk >= 0.90) sellPct = 0.05;
         if (sellPct > 0) {
           const assetSold = totalAsset * sellPct;
           sellProceeds = assetSold * d.price;
@@ -1588,7 +1588,7 @@ export default function DCASimulator() {
           {/* Sell Strategy — always visible */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Sell Strategy<InfoTip align="left" text="Automatically trims your position when risk gets dangerously high — takes profits near market tops." /></div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Sell Strategy<InfoTip align="left" text="Automatically trims your position at extreme risk levels — sells 5% at risk 0.90+ and 10% at 0.95+ to take profits near market tops." /></div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
                 {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
@@ -1599,12 +1599,12 @@ export default function DCASimulator() {
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
                   <input type="checkbox" checked={sell90} onChange={e => setSell90(e.target.checked)}
                     style={{ accentColor: "#f59e0b", width: 14, height: 14, cursor: "pointer" }} />
-                  <span style={{ color: sell90 ? "#f59e0b" : "#555" }}>Sell <strong>10%</strong> at risk ≥ 0.90</span>
+                  <span style={{ color: sell90 ? "#f59e0b" : "#555" }}>Sell <strong>10%</strong> at risk ≥ 0.95</span>
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11 }}>
                   <input type="checkbox" checked={sell80} onChange={e => setSell80(e.target.checked)}
                     style={{ accentColor: "#f97316", width: 14, height: 14, cursor: "pointer" }} />
-                  <span style={{ color: sell80 ? "#f97316" : "#555" }}>Sell <strong>5%</strong> at risk 0.80 – 0.899</span>
+                  <span style={{ color: sell80 ? "#f97316" : "#555" }}>Sell <strong>5%</strong> at risk 0.90 – 0.949</span>
                 </label>
               </div>
             )}

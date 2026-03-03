@@ -1213,7 +1213,7 @@ export default function DCASimulator() {
 
   const InfoTip = ({ text, align }) => (
     <span className="info-tip">
-      <span className="info-icon" style={{ color: darkMode ? "#8899bb" : "#556", border: `1px solid ${darkMode ? "#4a4a6a" : "#bbc"}` }}>ⓘ</span>
+      <span className="info-icon" style={{ color: darkMode ? "#6a7a99" : "#667", border: `1px solid ${darkMode ? "#3a3a5a" : "#bbc"}` }}>ⓘ</span>
       <span className="info-bubble" style={{ background: darkMode ? "#1a1a3a" : "#fff", color: T.text, border: `1px solid ${T.border2}`, boxShadow: "0 4px 16px rgba(0,0,0,0.4)", ...(align === "left" ? { left: 0, transform: "none" } : {}) }}>{text}</span>
     </span>
   );

@@ -32,20 +32,6 @@ function addMovingAverage(data) {
   });
 }
 
-// ── 200 SMA FEATURE — remove all 6 blocks to revert ─────────────────────
-// Block 1 of 6: 200-day Simple Moving Average calculation
-function calc200SMA(data) {
-  const WINDOW = 200;
-  let sum = 0;
-  return data.map((d, i) => {
-    sum += d.price;
-    if (i >= WINDOW) sum -= data[i - WINDOW].price;
-    const sma = i >= WINDOW - 1 ? sum / Math.min(i + 1, WINDOW) : null;
-    return { ...d, sma200: sma };
-  });
-}
-// ── END Block 1 ───────────────────────────────────────────────────────────
-
 const RISK_BANDS = [
   { label: "0.0 – 0.099", min: 0,   max: 0.1 },
   { label: "0.1 – 0.199", min: 0.1, max: 0.2 },
@@ -214,9 +200,6 @@ export default function DCASimulator() {
   const [initAvgPrice, setInitAvgPrice] = useState(() => getInitial("initAvgPrice", ""));
   const [sell90, setSell90] = useState(() => getInitial("sell90", true));
   const [sell80, setSell80] = useState(() => getInitial("sell80", true));
-  // ── 200 SMA FEATURE — Block 2 of 6: state variable ──────────────────────
-  const [smaEnabled, setSmaEnabled] = useState(false);
-  // ── END Block 2 ───────────────────────────────────────────────────────────
   const [leapEnabled, setLeapEnabled] = useState(() => getInitial("leapEnabled", false));
   const [ccEnabled, setCcEnabled] = useState(() => getInitial("ccEnabled", false));
   const [ccPremiumPct, setCcPremiumPct] = useState(() => getInitial("ccPremiumPct", 0.40)); // 0.40% of share value per month
@@ -637,13 +620,6 @@ export default function DCASimulator() {
     setCurrency(ticker.endsWith(".TO") ? "CAD" : "USD");
   }, [customTicker, assetId]);
 
-  // ── 200 SMA FEATURE — Block 3 of 6: compute sma200 over full dailyData ──
-  const sma200Data = useMemo(() => {
-    if (!smaEnabled || dailyData.length < 200) return [];
-    return calc200SMA(dailyData);
-  }, [dailyData, smaEnabled]);
-  // ── END Block 3 ───────────────────────────────────────────────────────────
-
   const riskBand = RISK_BANDS[riskBandIdx];
   const displayTicker = customTicker ?? asset.id;
   const displayLabel = customTicker ?? asset.label;
@@ -746,13 +722,6 @@ export default function DCASimulator() {
   const simulation = useMemo(() => {
     if (!rangeData.length) return { chartData: [], riskData: [], tradeLog: [], stats: null };
 
-    // ── 200 SMA FEATURE — Block 4 of 6: build SMA lookup by timestamp ───────
-    const smaLookup = new Map();
-    if (smaEnabled && sma200Data.length > 0) {
-      sma200Data.forEach(d => smaLookup.set(d.ts, d.sma200));
-    }
-    // ── END Block 4 (lookup) — modifier applied below in buy logic ───────────
-
     // Initial position values — added to totals only when initDate is reached in loop
     const initSh = parseFloat(initShares) || 0;
     const initPx = parseFloat(initAvgPrice) || 0;
@@ -836,21 +805,6 @@ export default function DCASimulator() {
       } else {
         if (isBuyDay && !isLastDay) {
           let mult = getMultiplier(d.risk, riskBand, strategy);
-          // ── 200 SMA FEATURE — Block 4b: adjust multiplier by trend ─────────
-          if (smaEnabled && mult > 0) {
-            const sma = smaLookup.get(d.ts) ?? null;
-            if (sma !== null) {
-              if (d.price < sma * 0.95) {
-                // Price >5% below SMA — strong downtrend, scale back by 1 (min 1)
-                mult = Math.max(1, mult - 1);
-              } else if (d.price > sma * 1.05) {
-                // Price >5% above SMA — confirmed uptrend, scale up by 1
-                mult = mult + 1;
-              }
-              // Within 5% of SMA — neutral, no adjustment
-            }
-          }
-          // ── END Block 4b ──────────────────────────────────────────────────
           if (mult > 0) { purchase = baseAmount * mult; buyCount++; }
         }
       }
@@ -1053,9 +1007,6 @@ export default function DCASimulator() {
         label: fmtDate(d.date),
         risk: d.risk,
         price: Math.round(d.price),
-        // ── 200 SMA FEATURE — Block 4c: include SMA in chart data ──────────
-        sma200: smaEnabled ? (smaLookup.get(d.ts) ? Math.round(smaLookup.get(d.ts)) : null) : null,
-        // ── END Block 4c ───────────────────────────────────────────────────
       });
     }
 
@@ -1108,7 +1059,7 @@ export default function DCASimulator() {
         sellPnlPct: totalInvested > 0 ? (((currentPortfolio + totalSellProceeds) / totalInvested - 1) * 100).toFixed(2) : 0,
       },
     };
-  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, sell80, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct, smaEnabled, sma200Data]);
+  }, [rangeData, tab, baseAmount, frequency, dayOfMonth, riskBand, strategy, sellEnabled, sell90, sell80, initEnabled, initShares, initAvgPrice, initDate, leapEnabled, leap09, leapCostPct, leapDelta, ccEnabled, ccPremiumPct]);
 
   const { chartData, riskData, tradeLog, stats } = simulation;
 
@@ -1536,28 +1487,6 @@ export default function DCASimulator() {
             )}
           </div>
 
-          {/* ── 200 SMA FEATURE — Block 5 of 6: UI toggle ──────────────────── */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-            <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>200-Day SMA Filter</div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {pillBtn(!smaEnabled, () => setSmaEnabled(false), "Off")}
-                {pillBtn(smaEnabled, () => setSmaEnabled(true), "On")}
-              </div>
-            </div>
-            {smaEnabled && (
-              <div style={{ alignSelf: "flex-end", fontSize: 10, color: T.textDim, paddingBottom: 2, lineHeight: 1.8 }}>
-                <span style={{ color: "#f472b6" }}>▲ price &gt;5% above SMA</span> → buy +1x (uptrend confirmed)<br/>
-                <span style={{ color: T.textDim }}>◆ price within 5% of SMA</span> → no adjustment (neutral)<br/>
-                <span style={{ color: "#60a5fa" }}>▼ price &gt;5% below SMA</span> → buy −1x, min 1x (downtrend caution)
-                {dailyData.length < 200 && (
-                  <div style={{ color: "#f59e0b", marginTop: 4 }}>⚠ Insufficient data (&lt;200 days) — filter inactive</div>
-                )}
-              </div>
-            )}
-          </div>
-          {/* ── END Block 5 ─────────────────────────────────────────────────── */}
-
           {/* LEAP Strategy */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
@@ -1793,22 +1722,6 @@ export default function DCASimulator() {
                       dot={false}
                       strokeOpacity={0.7}
                     />
-                    {/* ── 200 SMA FEATURE — Block 6 of 6: SMA line on chart ── */}
-                    {smaEnabled && (
-                      <Line
-                        yAxisId="price"
-                        type="monotone"
-                        dataKey="sma200"
-                        name="200 SMA"
-                        stroke="#f472b6"
-                        strokeWidth={1}
-                        dot={false}
-                        strokeDasharray="4 3"
-                        strokeOpacity={0.8}
-                        connectNulls={false}
-                      />
-                    )}
-                    {/* ── END Block 6 ───────────────────────────────────────── */}
                     {/* Risk — hero line on left axis */}
                     <Line
                       yAxisId="risk"

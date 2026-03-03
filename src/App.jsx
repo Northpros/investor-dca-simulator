@@ -1211,10 +1211,10 @@ export default function DCASimulator() {
     }}>{label}</button>
   );
 
-  const InfoTip = ({ text }) => (
+  const InfoTip = ({ text, align }) => (
     <span className="info-tip">
       <span className="info-icon" style={{ color: T.textDim, border: `1px solid ${T.border2}` }}>ⓘ</span>
-      <span className="info-bubble" style={{ background: darkMode ? "#1a1a3a" : "#fff", color: T.text, border: `1px solid ${T.border2}`, boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>{text}</span>
+      <span className="info-bubble" style={{ background: darkMode ? "#1a1a3a" : "#fff", color: T.text, border: `1px solid ${T.border2}`, boxShadow: "0 4px 16px rgba(0,0,0,0.4)", ...(align === "left" ? { left: 0, transform: "none" } : {}) }}>{text}</span>
     </span>
   );
 
@@ -1588,7 +1588,7 @@ export default function DCASimulator() {
           {/* Sell Strategy — always visible */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Sell Strategy<InfoTip text="Automatically trims your position when risk gets dangerously high — takes profits near market tops." /></div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Sell Strategy<InfoTip align="left" text="Automatically trims your position when risk gets dangerously high — takes profits near market tops." /></div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!sellEnabled, () => setSellEnabled(false), "Off")}
                 {pillBtn(sellEnabled, () => setSellEnabled(true), "On")}
@@ -1613,7 +1613,7 @@ export default function DCASimulator() {
           {/* LEAP Strategy */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>LEAP Options<InfoTip text="Replaces share purchases with long-dated call options at the deepest risk zones for amplified exposure with defined risk." /></div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>LEAP Options<InfoTip align="left" text="Replaces share purchases with long-dated call options at the deepest risk zones for amplified exposure with defined risk." /></div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!leapEnabled, () => setLeapEnabled(false), "Off")}
                 {pillBtn(leapEnabled, () => setLeapEnabled(true), "On")}
@@ -1655,7 +1655,7 @@ export default function DCASimulator() {
           {/* Covered Call */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap", paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
             <div>
-              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Covered Call<InfoTip text="Sells call options against your holdings when risk exceeds 0.90, generating income near market tops. Collects premium while capping upside on half your position." /></div>
+              <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Covered Call<InfoTip align="left" text="Sells call options against your holdings when risk exceeds 0.90, generating income near market tops. Collects premium while capping upside on half your position." /></div>
               <div style={{ display: "flex", gap: 4 }}>
                 {pillBtn(!ccEnabled, () => setCcEnabled(false), "Off")}
                 {pillBtn(ccEnabled, () => setCcEnabled(true), "On")}
@@ -1740,6 +1740,11 @@ export default function DCASimulator() {
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
                   {`${displayTicker} — Simulated Portfolio Value Over Time`}
                 </h3>
+                <div style={{ fontSize: 10, color: T.textDim, marginTop: -12, marginBottom: 8, fontFamily: "'DM Mono', monospace" }}>
+                  <span style={{ color: "#6C8EFF" }}>■</span> Portfolio value
+                  {" · "}<span style={{ color: "#888" }}>- -</span> Total invested (cost basis)
+                  {tab !== "lump" && <>{" · "}<span style={{ color: "#444" }}>···</span> Lump sum equivalent<InfoTip text="Shows what your portfolio would be worth if you invested the same total dollar amount all at once on the start date — an apples-to-apples comparison against your DCA strategy." /></>}
+                </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <defs>
@@ -1772,6 +1777,7 @@ export default function DCASimulator() {
               <div>
                 <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
                   {tab === "dynamic" ? "Simulated Strategy Over Time" : "Risk Metric Over Time"}
+                  <InfoTip text="Green zones show where your DCA buys trigger — darker green means higher multipliers at lower risk. The blue line tracks the risk score and the dotted red line shows price." />
                   <span style={{ fontSize: 10, color: T.textDim, fontWeight: 400, marginLeft: 10, fontFamily: "'DM Mono', monospace" }}>
                     — <span style={{ color: "#aabbff" }}>risk</span> vs <span style={{ color: "#8b3a3a" }}>price</span>
                   </span>

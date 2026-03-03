@@ -1213,7 +1213,7 @@ export default function DCASimulator() {
 
   const InfoTip = ({ text, align }) => (
     <span className="info-tip">
-      <span className="info-icon" style={{ color: darkMode ? "#6a7a99" : "#667", border: `1px solid ${darkMode ? "#3a3a5a" : "#bbc"}` }}>ⓘ</span>
+      <span className="info-icon" style={{ color: T.label, border: "none" }}>ⓘ</span>
       <span className="info-bubble" style={{ background: darkMode ? "#1a1a3a" : "#fff", color: T.text, border: `1px solid ${T.border2}`, boxShadow: "0 4px 16px rgba(0,0,0,0.4)", ...(align === "left" ? { left: 0, transform: "none" } : {}) }}>{text}</span>
     </span>
   );
@@ -1246,8 +1246,8 @@ export default function DCASimulator() {
         ::-webkit-scrollbar-track { background: #0d0d1f; }
         ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
         .info-tip { position: relative; display: inline-flex; align-items: center; margin-left: 4px; cursor: help; }
-        .info-tip .info-icon { font-size: 11px; width: 15px; height: 15px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: color 0.2s; }
-        .info-tip:hover .info-icon { filter: brightness(1.4); }
+        .info-tip .info-icon { font-size: 10px; width: 13px; height: 13px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: color 0.2s; }
+        .info-tip:hover .info-icon { filter: brightness(1.3); }
         .info-tip .info-bubble { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 260px; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.5; z-index: 1000; pointer-events: none; font-family: 'DM Mono', monospace; }
         .info-tip:hover .info-bubble { display: block; }
       `}</style>

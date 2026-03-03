@@ -1670,7 +1670,7 @@ export default function DCASimulator() {
                       yAxisId="price"
                       orientation="right"
                       width={55}
-                      tick={{ fontSize: 9, fill: "#7aa8cc" }}
+                      tick={{ fontSize: 9, fill: "#4d7a9e" }}
                       tickFormatter={v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
                     />
                     <Tooltip content={<CustomTooltip />} />
@@ -1717,7 +1717,7 @@ export default function DCASimulator() {
                       type="monotone"
                       dataKey="price"
                       name="Price"
-                      stroke="#7aa8cc"
+                      stroke="#4d7a9e"
                       strokeWidth={1.5}
                       dot={false}
                       strokeOpacity={0.85}

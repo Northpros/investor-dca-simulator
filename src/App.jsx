@@ -1289,9 +1289,9 @@ export default function DCASimulator() {
               }}>Defaults <span style={{ fontSize: 10 }}>▾</span></button>
               {showDefaultsMenu && (
                 <div style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0,
+                  position: "absolute", top: "calc(100% + 2px)", right: 0,
                   background: T.card, border: `1px solid ${T.border2}`,
-                  borderRadius: 8, overflow: "hidden", zIndex: 999, minWidth: 160,
+                  borderRadius: 6, overflow: "hidden", zIndex: 999, minWidth: 120,
                   boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
                 }}>
                   {[
@@ -1328,8 +1328,8 @@ export default function DCASimulator() {
                   ].map(({ label, action }) => (
                     <button key={label} onClick={action} style={{
                       display: "block", width: "100%", textAlign: "left",
-                      padding: "10px 16px", background: "transparent",
-                      border: "none", color: T.text, fontSize: 12,
+                      padding: "7px 12px", background: "transparent",
+                      border: "none", color: T.text, fontSize: 11,
                       fontFamily: "'DM Mono', monospace", cursor: "pointer",
                     }}
                     onMouseEnter={e => e.target.style.background = T.inputBg}
@@ -1787,7 +1787,7 @@ export default function DCASimulator() {
                   </span>
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <ComposedChart data={riskData} margin={{ top: 5, right: 130, left: 0, bottom: 5 }}>
+                  <ComposedChart data={riskData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#151530" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#555" }} interval={Math.floor(riskData.length / 8)} />
                     {/* Left Y-axis: risk 0–1 */}

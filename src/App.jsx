@@ -1750,7 +1750,7 @@ export default function DCASimulator() {
                   {tab !== "lump" && <>{" · "}<span style={{ color: "#444" }}>···</span> Lump sum equivalent<InfoTip text="Shows what your portfolio would be worth if you invested the same total dollar amount all at once on the start date — an apples-to-apples comparison against your DCA strategy." /></>}
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 65, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#6C8EFF" stopOpacity={0.25} />
@@ -1764,7 +1764,7 @@ export default function DCASimulator() {
                       domain={scaleY === "Log" ? ["auto", "auto"] : [0, "auto"]}
                       tick={{ fontSize: 10, fill: "#555" }}
                       tickFormatter={v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
-                      width={55}
+                      width={35}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11, color: T.textMid }} />

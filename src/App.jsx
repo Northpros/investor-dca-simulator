@@ -1779,12 +1779,29 @@ export default function DCASimulator() {
 
               {/* Risk / Strategy Chart */}
               <div>
-                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {tab === "dynamic" ? "Simulated Strategy Over Time" : "Risk Metric Over Time"}
-                  <InfoTip text="Green zones show where your DCA buys trigger — darker green means higher multipliers at lower risk. The blue line tracks the risk score and the dotted red line shows price." />
-                  <span style={{ fontSize: 10, color: T.textDim, fontWeight: 400, marginLeft: 10, fontFamily: "'DM Mono', monospace" }}>
-                    — <span style={{ color: "#aabbff" }}>risk</span> vs <span style={{ color: "#8b3a3a" }}>price</span>
+                <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif", display: "flex", alignItems: "center" }}>
+                  <span>
+                    {tab === "dynamic" ? "Simulated Strategy Over Time" : "Risk Metric Over Time"}
+                    <InfoTip text="Green zones show where your DCA buys trigger — darker green means higher multipliers at lower risk. The blue line tracks the risk score and the dotted red line shows price." />
+                    <span style={{ fontSize: 10, color: T.textDim, fontWeight: 400, marginLeft: 10, fontFamily: "'DM Mono', monospace" }}>
+                      — <span style={{ color: "#aabbff" }}>risk</span> vs <span style={{ color: "#8b3a3a" }}>price</span>
+                    </span>
                   </span>
+                  {rangeData.length > 0 && (() => {
+                    const latestRisk = rangeData[rangeData.length - 1]?.risk;
+                    if (latestRisk == null) return null;
+                    const riskColor = latestRisk < 0.2 ? "#facc15" : latestRisk < 0.4 ? "#4ade80" : latestRisk < 0.6 ? "#aabbff" : latestRisk < 0.8 ? "#fb923c" : "#ef4444";
+                    return (
+                      <span style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                        <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace", fontWeight: 400 }}>current risk</span>
+                        <span style={{
+                          fontSize: 18, fontWeight: 700, fontFamily: "'DM Mono', monospace",
+                          color: riskColor,
+                          textShadow: `0 0 10px ${riskColor}66`,
+                        }}>{latestRisk.toFixed(3)}</span>
+                      </span>
+                    );
+                  })()}
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <ComposedChart data={riskData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>

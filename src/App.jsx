@@ -1259,6 +1259,9 @@ export default function DCASimulator() {
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
+          <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: 3, textTransform: "uppercase", color: darkMode ? "#475569" : "#94a3b8", marginBottom: 6 }}>
+            North Prosperity
+          </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.8,
               background: "linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%)",
@@ -1270,11 +1273,8 @@ export default function DCASimulator() {
               DCA Pro
             </span>
           </div>
-          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, margin: "6px 0 0", letterSpacing: 0.3, color: darkMode ? "#94a3b8" : T.label, fontStyle: "italic", display: "flex", alignItems: "center", gap: 0, flexWrap: "wrap" }}>
+          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, margin: "6px 0 0", letterSpacing: 0.3, color: darkMode ? "#94a3b8" : T.label, fontStyle: "italic" }}>
             Simulate, Optimize, and Execute Quantitative DCA Strategies.
-            <span style={{ marginLeft: 10, fontStyle: "normal", fontSize: 13, color: darkMode ? "#94a3b8" : T.label, letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-              ◆ North Prosperity ©
-            </span>
           </p>
           <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, margin: "6px 0 0", letterSpacing: 0.2, color: darkMode ? "#64748b" : T.textDim }}>
             Input Asset Ticker, DCA amount and parameters to simulate different accumulation and distribution strategies.

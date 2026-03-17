@@ -1366,7 +1366,7 @@ export default function DCASimulator() {
       </div>
 
       {/* Card */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", minWidth: 900 }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
@@ -1534,8 +1534,7 @@ export default function DCASimulator() {
             )}
           </div>
 
-          {tab === "dynamic" && (
-            <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start", visibility: tab === "dynamic" ? "visible" : "hidden", height: tab === "dynamic" ? "auto" : 36 }}>
               <div>
                 <div style={{ fontSize: 10, color: T.label, marginBottom: 4 }}>Accumulate up to risk...<InfoTip text="Buy when the asset's risk score falls below this level. Lower values mean you only buy during deeper dips." /></div>
                 <select style={{ ...inputStyle, cursor: "pointer" }} value={riskBandIdx} onChange={e => setRiskBandIdx(Number(e.target.value))}>
@@ -1598,7 +1597,6 @@ export default function DCASimulator() {
                 )}
               </div>
             </div>
-          )}
 
           {/* Sell Strategy — always visible */}
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
@@ -1941,32 +1939,15 @@ export default function DCASimulator() {
                               </td>
                               <td style={{ padding: "5px 10px", color: T.text }}>{fmtC(row.price)}</td>
                               <td style={{ padding: "5px 10px", color: T.text }}>
-                                {isLeapExpiry
-                                  ? <span style={{ color: T.textDim }}>—</span>
-                                  : <>{row.accumulated?.toFixed(4)} {displayTicker}</>
-                                }
+                                {isLeapExpiry ? <span style={{ color: T.textDim }}>—</span> : <>{row.accumulated?.toFixed(4)} {displayTicker}</>}
                               </td>
                               <td style={{ padding: "5px 10px", color: T.textMid }}>
-                                {isLeapExpiry
-                                  ? <span style={{ color: T.textDim, fontSize: 10 }}>—</span>
-                                  : fmtC(row.invested ?? 0)
-                                }
+                                {isLeapExpiry ? <span style={{ color: T.textDim, fontSize: 10 }}>—</span> : fmtC(row.invested ?? 0)}
                               </td>
                               <td style={{ padding: "5px 10px", color: isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isCcRow ? "#06b6d4" : isSell ? "#f59e0b" : isBuy ? "#22c55e" : T.textMid, fontWeight: (isBuy || isSell || isLeapExpiry) ? 500 : 400 }}>
-                                {isLeapExpiry
-                                  ? (<>
-                                      <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>Intrinsic: {fmtC(row.sellProceeds ?? 0)}</span>
-                                      <span style={{ fontWeight: 700 }}>{row.leapPnl >= 0 ? "+" : ""}{fmtC(row.leapPnl ?? 0)} P&L</span>
-                                    </>)
-                                  : isCcRow
-                                  ? (<>
-                                      <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(2)} shares (${row.ccContracts > 0 ? row.ccContracts + " contracts equiv." : "< 1 contract"})` : ""}</span>
-                                      <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
-                                    </>)
-                                  : (<>
-                                      {fmtC(row.portfolioValue ?? 0)}
-                                      {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}
-                                    </>)
+                                {isLeapExpiry ? (<><span style={{ fontSize: 10, color: T.textDim, display: "block" }}>Intrinsic: {fmtC(row.sellProceeds ?? 0)}</span><span style={{ fontWeight: 700 }}>{row.leapPnl >= 0 ? "+" : ""}{fmtC(row.leapPnl ?? 0)} P&L</span></>)
+                                  : isCcRow ? (<><span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(2)} shares (${row.ccContracts > 0 ? row.ccContracts + " contracts equiv." : "< 1 contract"})` : ""}</span><span>+{fmtC(row.ccIncome ?? 0)} premium</span></>)
+                                  : (<>{fmtC(row.portfolioValue ?? 0)}{isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}</>)
                                 }
                               </td>
                             </tr>

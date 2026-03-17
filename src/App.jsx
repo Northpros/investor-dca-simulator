@@ -2274,7 +2274,8 @@ export default function DCASimulator() {
 
         {/* Portfolio Tracker Tab */}
         {tab === "portfolio" && (
-          <div style={{ padding: "24px 20px" }}>
+          <div style={{ display: "flex" }}>
+            <div style={{ flex: 1, minWidth: 0, padding: "24px 20px" }}>
             {/* Header row */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div>
@@ -2737,6 +2738,9 @@ export default function DCASimulator() {
                 </div>
               </>
             )}
+            </div>
+            {/* Dead space column — matches stats panel width to keep portfolio same width as other tabs */}
+            <div style={{ width: 210, borderLeft: `1px solid ${T.border}` }} />
           </div>
         )}
 

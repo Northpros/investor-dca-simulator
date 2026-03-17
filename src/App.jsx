@@ -1366,7 +1366,7 @@ export default function DCASimulator() {
       </div>
 
       {/* Card */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", minWidth: 900 }}>
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
@@ -1760,7 +1760,7 @@ export default function DCASimulator() {
                   {" · "}<span style={{ color: "#888" }}>- -</span> Total invested (cost basis)
                   {tab !== "lump" && <>{" · "}<span style={{ color: "#444" }}>···</span> Lump sum equivalent<InfoTip text="Shows what your portfolio would be worth if you invested the same total dollar amount all at once on the start date — an apples-to-apples comparison against your DCA strategy." /></>}
                 </div>
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={chartData} margin={{ top: 5, right: 65, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1814,7 +1814,7 @@ export default function DCASimulator() {
                     );
                   })()}
                 </h3>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={260}>
                   <ComposedChart data={riskData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#151530" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#555" }} interval={Math.floor(riskData.length / 8)} />

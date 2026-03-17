@@ -1901,6 +1901,83 @@ export default function DCASimulator() {
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
+
+              {/* Trade History Table — inside left column to match chart width */}
+              {tradeLog && tradeLog.length > 0 && (
+                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: "20px", marginTop: 12 }}>
+                  <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
+                    Simulated Trade History
+                  </h3>
+                  <p style={{ margin: "0 0 14px", fontSize: 11, color: T.textDim }}>
+                    {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()}${frequency === "Monthly" || frequency === "Quarterly" ? ` on the ${dayOfMonth}` : ""} — from ${startDate} to ${endDate}`}
+                  </p>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                          {["Date","Action","Risk","Asset Price","Accumulated","Invested Amount","Portfolio Value"].map(h => (
+                            <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: T.textDim, fontWeight: 400, whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tradeLog.map((row, i) => {
+                          const isBuy = row.action.startsWith("Buy") || row.action === "Lump Sum";
+                          const isSell = row.action.startsWith("Sell");
+                          const isInit = row.action === "Initial Position";
+                          const isLeapRow = row.action?.startsWith("LEAP");
+                          const isLeapExpiry = row.leapExpiry === true;
+                          const isCcRow = row.action === "Covered Call";
+                          const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
+                          return (
+                            <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: "transparent" }}>
+                              <td style={{ padding: "5px 10px", color: T.textMid, whiteSpace: "nowrap" }}>{row.date}</td>
+                              <td style={{ padding: "5px 10px", color: isCcRow ? "#06b6d4" : isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isLeapRow ? "#a78bfa" : isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? T.accent : T.textDim, fontWeight: 500 }}>
+                                {row.action}
+                                {isLeapRow && row.leapContracts && <span style={{ color: "#7c6ad6", fontSize: 10, display: "block" }}>{row.leapContracts} contract{row.leapContracts !== 1 ? "s" : ""} × 100 shares</span>}
+                              </td>
+                              <td style={{ padding: "5px 10px" }}>
+                                <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
+                              </td>
+                              <td style={{ padding: "5px 10px", color: T.text }}>{fmtC(row.price)}</td>
+                              <td style={{ padding: "5px 10px", color: T.text }}>
+                                {isLeapExpiry
+                                  ? <span style={{ color: T.textDim }}>—</span>
+                                  : <>{row.accumulated?.toFixed(4)} {displayTicker}</>
+                                }
+                              </td>
+                              <td style={{ padding: "5px 10px", color: T.textMid }}>
+                                {isLeapExpiry
+                                  ? <span style={{ color: T.textDim, fontSize: 10 }}>—</span>
+                                  : fmtC(row.invested ?? 0)
+                                }
+                              </td>
+                              <td style={{ padding: "5px 10px", color: isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isCcRow ? "#06b6d4" : isSell ? "#f59e0b" : isBuy ? "#22c55e" : T.textMid, fontWeight: (isBuy || isSell || isLeapExpiry) ? 500 : 400 }}>
+                                {isLeapExpiry
+                                  ? (<>
+                                      <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>Intrinsic: {fmtC(row.sellProceeds ?? 0)}</span>
+                                      <span style={{ fontWeight: 700 }}>{row.leapPnl >= 0 ? "+" : ""}{fmtC(row.leapPnl ?? 0)} P&L</span>
+                                    </>)
+                                  : isCcRow
+                                  ? (<>
+                                      <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(2)} shares (${row.ccContracts > 0 ? row.ccContracts + " contracts equiv." : "< 1 contract"})` : ""}</span>
+                                      <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
+                                    </>)
+                                  : (<>
+                                      {fmtC(row.portfolioValue ?? 0)}
+                                      {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}
+                                    </>)
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Stats Panel */}
@@ -2209,82 +2286,6 @@ export default function DCASimulator() {
 
               </div>
             )}
-          </div>
-        )}
-
-        {/* Trade History Table */}
-        {tradeLog && tradeLog.length > 0 && (
-          <div style={{ borderTop: `1px solid ${T.border}`, padding: "20px" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 500, color: T.text, fontFamily: "'Space Grotesk', sans-serif" }}>
-              Simulated Trade History
-            </h3>
-            <p style={{ margin: "0 0 14px", fontSize: 11, color: T.textDim }}>
-              {`Purchase $${baseAmount.toLocaleString()} multiplied by a factor based on ${displayTicker} risk level, every ${frequency.toLowerCase()}${frequency === "Monthly" || frequency === "Quarterly" ? ` on the ${dayOfMonth}` : ""} — from ${startDate} to ${endDate}`}
-            </p>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-                    {["Date","Action","Risk","Asset Price","Accumulated","Invested Amount","Portfolio Value"].map(h => (
-                      <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: T.textDim, fontWeight: 400, whiteSpace: "nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tradeLog.map((row, i) => {
-                    const isBuy = row.action.startsWith("Buy") || row.action === "Lump Sum";
-                    const isSell = row.action.startsWith("Sell");
-                    const isInit = row.action === "Initial Position";
-                    const isLeapRow = row.action?.startsWith("LEAP");
-                    const isLeapExpiry = row.leapExpiry === true;
-                    const isCcRow = row.action === "Covered Call";
-                    const riskColor = row.risk > 0.9 ? "#dc2626" : row.risk > 0.8 ? "#ea580c" : row.risk > 0.6 ? "#ef4444" : row.risk > 0.4 ? "#ca8a04" : row.risk > 0.2 ? "#22c55e" : "#15803d";
-                    return (
-                      <tr key={i} style={{ borderBottom: "1px solid #0f0f25", background: "transparent" }}>
-                        <td style={{ padding: "5px 10px", color: T.textMid, whiteSpace: "nowrap" }}>{row.date}</td>
-                        <td style={{ padding: "5px 10px", color: isCcRow ? "#06b6d4" : isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isLeapRow ? "#a78bfa" : isInit ? "#a78bfa" : isSell ? "#f59e0b" : isBuy ? T.accent : T.textDim, fontWeight: 500 }}>
-                          {row.action}
-                          {isLeapRow && row.leapContracts && <span style={{ color: "#7c6ad6", fontSize: 10, display: "block" }}>{row.leapContracts} contract{row.leapContracts !== 1 ? "s" : ""} × 100 shares</span>}
-                        </td>
-                        <td style={{ padding: "5px 10px" }}>
-                          <span style={{ color: riskColor, background: riskColor + "22", padding: "1px 6px", borderRadius: 3 }}>{row.risk?.toFixed(3)}</span>
-                        </td>
-                        <td style={{ padding: "5px 10px", color: T.text }}>{fmtC(row.price)}</td>
-                        <td style={{ padding: "5px 10px", color: T.text }}>
-                          {isLeapExpiry
-                            ? <span style={{ color: T.textDim }}>—</span>
-                            : <>{row.accumulated?.toFixed(4)} {displayTicker}</>
-                          }
-                        </td>
-                        <td style={{ padding: "5px 10px", color: T.textMid }}>
-                          {isLeapExpiry
-                            ? <span style={{ color: T.textDim, fontSize: 10 }}>—</span>
-                            : fmtC(row.invested ?? 0)
-                          }
-                        </td>
-                        <td style={{ padding: "5px 10px", color: isLeapExpiry ? (row.leapPnl >= 0 ? "#22c55e" : "#ef4444") : isCcRow ? "#06b6d4" : isSell ? "#f59e0b" : isBuy ? "#22c55e" : T.textMid, fontWeight: (isBuy || isSell || isLeapExpiry) ? 500 : 400 }}>
-                          {isLeapExpiry
-                            ? (<>
-                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>Intrinsic: {fmtC(row.sellProceeds ?? 0)}</span>
-                                <span style={{ fontWeight: 700 }}>{row.leapPnl >= 0 ? "+" : ""}{fmtC(row.leapPnl ?? 0)} P&L</span>
-                              </>)
-                            : isCcRow
-                            ? (<>
-                                <span style={{ fontSize: 10, color: T.textDim, display: "block" }}>{row.ccShares ? `${row.ccShares.toFixed(2)} shares (${row.ccContracts > 0 ? row.ccContracts + " contracts equiv." : "< 1 contract"})` : ""}</span>
-                                <span>+{fmtC(row.ccIncome ?? 0)} premium</span>
-                              </>)
-                            : (<>
-                                {fmtC(row.portfolioValue ?? 0)}
-                                {isSell && row.sellProceeds && <span style={{ color: "#f59e0b", fontSize: 10, display: "block" }}>+{fmtC(row.sellProceeds)} cashed</span>}
-                              </>)
-                          }
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
 

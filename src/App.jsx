@@ -1366,7 +1366,7 @@ export default function DCASimulator() {
       </div>
 
       {/* Card */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "visible" }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
@@ -2274,7 +2274,8 @@ export default function DCASimulator() {
 
         {/* Portfolio Tracker Tab */}
         {tab === "portfolio" && (
-          <div style={{ padding: "24px 20px" }}>
+          <div style={{ display: "flex" }}>
+            <div style={{ flex: 1, minWidth: 0, padding: "24px 20px" }}>
             {/* Header row */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div>
@@ -2310,7 +2311,7 @@ export default function DCASimulator() {
               </div>
             ) : (
               <>
-                <div style={{ overflowX: "auto" }}>
+                <div style={{ overflowX: "auto", maxWidth: "100vw" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -2518,7 +2519,7 @@ export default function DCASimulator() {
                     </div>
                   ) : (
                     <>
-                      <div style={{ overflowX: "auto" }}>
+                      <div style={{ overflowX: "auto", maxWidth: "100vw" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
                           <thead>
                             <tr style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -2737,6 +2738,9 @@ export default function DCASimulator() {
                 </div>
               </>
             )}
+            </div>
+            {/* Dead space column — holds desktop width, collapses on mobile */}
+            <div style={{ width: 210, minWidth: 0, flexShrink: 1, borderLeft: `1px solid ${T.border}` }} />
           </div>
         )}
 

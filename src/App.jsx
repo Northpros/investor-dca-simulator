@@ -2740,7 +2740,7 @@ export default function DCASimulator() {
             )}
             </div>
             {/* Dead space column — matches stats panel width to keep portfolio same width as other tabs */}
-            <div style={{ width: 210, borderLeft: `1px solid ${T.border}` }} />
+            <div style={{ width: 210, minWidth: 0, flexShrink: 1, borderLeft: `1px solid ${T.border}` }} />
           </div>
         )}
 

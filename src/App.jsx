@@ -1256,6 +1256,8 @@ export default function DCASimulator() {
         .info-tip:hover .info-bubble { display: block; }
         .np-disclaimer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: #0d0d1f; border-top: 1px solid #2a2a4a; padding: 5px 12px; }
         .np-disclaimer-text { font-family: 'DM Mono', monospace; font-size: 10px; color: #555577; line-height: 1.5; display: block; }
+        .ra-card { background: inherit; }
+        @media (min-width: 768px) { .ra-card { min-width: 900px; } }
       `}</style>
 
       {/* Permanent Disclaimer Footer */}
@@ -1366,7 +1368,7 @@ export default function DCASimulator() {
       </div>
 
       {/* Card */}
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div className="ra-card" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
 
         {/* Tabs */}
         <div style={{ borderBottom: `1px solid ${T.border}`, display: "flex", padding: "0 16px" }}>
@@ -2274,8 +2276,7 @@ export default function DCASimulator() {
 
         {/* Portfolio Tracker Tab */}
         {tab === "portfolio" && (
-          <div style={{ display: "flex" }}>
-            <div style={{ flex: 1, minWidth: 0, padding: "24px 20px" }}>
+          <div style={{ padding: "24px 20px" }}>
             {/* Header row */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div>
@@ -2311,7 +2312,7 @@ export default function DCASimulator() {
               </div>
             ) : (
               <>
-                <div style={{ overflowX: "auto", maxWidth: "100vw" }}>
+                <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -2519,7 +2520,7 @@ export default function DCASimulator() {
                     </div>
                   ) : (
                     <>
-                      <div style={{ overflowX: "auto", maxWidth: "100vw" }}>
+                      <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
                           <thead>
                             <tr style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -2738,9 +2739,6 @@ export default function DCASimulator() {
                 </div>
               </>
             )}
-            </div>
-            {/* Dead space column — holds desktop width, collapses on mobile */}
-            <div style={{ width: 210, minWidth: 0, flexShrink: 1, borderLeft: `1px solid ${T.border}` }} />
           </div>
         )}
 

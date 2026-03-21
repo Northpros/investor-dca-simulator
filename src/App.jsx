@@ -1254,15 +1254,28 @@ export default function DCASimulator() {
         .info-tip:hover .info-icon { filter: brightness(1.3); }
         .info-tip .info-bubble { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 260px; padding: 10px 12px; border-radius: 8px; font-size: 11px; line-height: 1.5; z-index: 1000; pointer-events: none; font-family: 'DM Mono', monospace; }
         .info-tip:hover .info-bubble { display: block; }
-        .np-disclaimer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: #0d0d1f; border-top: 1px solid #2a2a4a; padding: 5px 12px; }
+        .np-disclaimer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: #0d0d1f; border-top: 1px solid #2a2a4a; padding: 5px 12px; cursor: pointer; }
         .np-disclaimer-text { font-family: 'DM Mono', monospace; font-size: 10px; color: #555577; line-height: 1.5; display: block; }
       `}</style>
 
       {/* Permanent Disclaimer Footer */}
-      <div className="np-disclaimer">
-        <div className="np-disclaimer-text">⚠️ Not financial advice · For educational and simulation purposes only · Past performance does not guarantee future results</div>
-        <div className="np-disclaimer-text">Always consult a qualified financial advisor before making investment decisions · © 2026 North Prosperity</div>
-      </div>
+      {/* Collapsible Disclaimer Footer */}
+      {(() => {
+        const [expanded, setExpanded] = React.useState(false);
+        return (
+          <div className="np-disclaimer" onClick={() => setExpanded(e => !e)}>
+            <div className="np-disclaimer-text">
+              ⚠️ Not financial advice · Educational only · © 2026 North Prosperity
+              <span style={{ color: "#6C8EFF", marginLeft: 6 }}>{expanded ? "▲ less" : "▼ more"}</span>
+            </div>
+            {expanded && (
+              <div className="np-disclaimer-text" style={{ marginTop: 3 }}>
+                For educational and simulation purposes only · Past performance does not guarantee future results · Always consult a qualified financial advisor before making investment decisions
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Header */}
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
